@@ -243,8 +243,9 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   rubber stamp. Duplicate refs are auto-rejected before reaching this list.
 - Approve → `review_renewal` extends `subscription_until` by a month (live via Realtime). Reject → reason captured +
   shown to the user, who can resubmit.
-- _Planned:_ a **Drivers** verification queue (license + motorcycle photos via signed URLs) will reuse this same page
-  + `is_admin` role.
+- A **Drivers** verification queue (license + motorcycle photos via signed URLs) reuses this same page + `is_admin`
+  role (`0011`): pending applicants are listed, each photo opens via a short-lived signed URL, and Approve/Reject
+  gates whether that driver can go online.
 
 ### Activity ✅ _(built — `/history`, all users)_
 ```

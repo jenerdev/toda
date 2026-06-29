@@ -19,7 +19,7 @@ built (`0008`–`0010`): per-ride credits retired, access gated, manual GCash re
 >    **deferred until after the app is deployed** (user's call — they'll do it on the live host). The dummy OTP
 >    (`1234`) is fine for the demo/preview; it remains the blocker before any *real-user* launch (see Security below).
 >
-> Everything through driver verification is built (migrations `0001`–`0011`). Open items are tracked in **🔲 Remaining**.
+> Everything through driver verification + web-push ride alerts is built (migrations `0001`–`0012`). Open items are tracked in **🔲 Remaining**.
 
 ---
 
@@ -230,6 +230,7 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0009_subscriptions.sql` | `profiles.subscription_until`; first-month-free in `handle_new_user`; `has_active_access()` (3-day grace); gates `book_ride` + `driver_go_online` |
 | `0010_renewals_admin.sql` | `profiles.is_admin` + `is_admin()`; `renewals` table (unique GCash ref) + RLS; `submit_renewal`/`review_renewal`; private `renewal-screenshots` Storage bucket |
 | `0011_driver_verification.sql` | `driver_applications` table + RLS; `submit_driver_application`/`review_driver`; `driver_go_online` gated on `approved`; private `driver-docs` Storage bucket |
+| `0012_push_subscriptions.sql` | `push_subscriptions` table + RLS (user manages own); read by the `notify-driver` Edge Function (service role) to send driver ride-offer Web Push on `ride_offers` insert |
 
 ---
 

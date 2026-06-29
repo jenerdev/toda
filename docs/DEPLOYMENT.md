@@ -49,7 +49,7 @@ The frontend is a static Vite build (HTML/JS/CSS), so any static host works.
 ## Backend (Supabase) — managed; you just apply SQL
 
 You don't host a server and you don't need the CLI. To set up (or update) the backend, open the Supabase **SQL
-Editor** and run the migration files in `supabase/migrations/` **in order** (`0001` → `0011`). Apply them all in
+Editor** and run the migration files in `supabase/migrations/` **in order** (`0001` → `0012`). Apply them all in
 order — later migrations redefine earlier functions and **`0008` drops** `profiles.credits` + the `transactions`
 table, so skipping or reordering will leave the schema inconsistent. They create the tables, RLS, RPC functions,
 triggers, Realtime publications, and the private Storage buckets.

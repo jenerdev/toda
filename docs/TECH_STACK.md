@@ -20,7 +20,7 @@
 | **Map tiles** | OpenStreetMap | Free tiles, no API key (respect usage policy / add attribution). |
 | **Geocoding** | _none_ | Pickup address is **free text typed by the commuter** (shown to the driver); the map only pins current-location coordinates. No geocoding service needed. |
 | **Payments** ✅ | **Manual GCash + admin review** | ₱30/month subscription (gates access). No payment gateway: user pays a **business GCash** number externally, submits the **reference number** (`submit_renewal`), an admin verifies it (`review_renewal`). Keeps money out of the app (closed-loop) — no processor, no service-role key. GCash API / a gateway is a later automation step. See [`MONETIZATION.md`](MONETIZATION.md). |
-| **File storage** ✅ | **Supabase Storage (private bucket)** | `renewal-screenshots` (per-user folder), read via short-TTL **signed URLs** — never public (PII). Driver-verification photos will reuse the same pattern (planned). |
+| **File storage** ✅ | **Supabase Storage (private bucket)** | `renewal-screenshots` (per-user folder), read via short-TTL **signed URLs** — never public (PII). Driver-verification photos (`driver-docs` bucket, `0011`) use the same pattern. |
 | **Hosting (frontend)** | **Vercel** (deployed) | Zero-config React/Vite deploys; auto-deploy on push to `main`. Repo: `github.com/jenerdev/toda`. Netlify / Cloudflare Pages are equally fine. |
 | **Hosting (backend)** | Supabase Cloud | Managed Postgres + functions; generous free tier. |
 

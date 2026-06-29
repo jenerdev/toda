@@ -162,8 +162,9 @@ BSP e-money regulation.
 - **Admin review.** An `is_admin` flag + the `/admin` page lists pending renewals; the admin **cross-checks the ref
   against the GCash transaction history**, then calls `review_renewal(id, 'approve'|'reject', reason)` — a SECURITY
   DEFINER function that checks `is_admin()` **inside**, and on approve extends `subscription_until` by a month
-  (stacking onto remaining time). The same `is_admin` role + signed-URL machinery is reserved for the planned driver
-  verification.
+  (stacking onto remaining time). The same `is_admin` role + signed-URL machinery also powers **driver verification**
+  (`0011`): a driver uploads a license + motorcycle photo to the private `driver-docs` bucket, and an admin must
+  approve the application before `driver_go_online` will let them on.
 - **No money moves through the app.** GCash handles the actual peso transfer; MotoQueue only records the claim and an
   admin confirms it. There is still **no payment processor** in this app. *(There is one server-side secret now — the
   Supabase **service-role key** — but it lives only in the `notify-driver` Edge Function's environment, used to read

@@ -12,21 +12,25 @@ where you are, and the **next driver in the queue** is dispatched to you.
 2. **Commuter** logs in, **types a pickup address**, and **pins their current location** on the map.
 3. The **first available driver** is notified → **Accept** or **Decline** (pickup details are revealed only on accept).
 4. Decline / no response (30s) → the **next driver** is notified, and so on.
-5. Accept → both are charged, the commuter sees **"driver on the way"** with a **live map** + **chat**.
+5. Accept → the commuter sees **"driver on the way"** with a **live map** + **chat**. The fare is **cash, paid to the
+   driver outside the app** — the app never handles ride money.
 6. Ride completes → the driver **re-queues at the end**.
 
-### Credits (MVP)
+### Access (subscription)
 
-Everyone starts with **100 credits**. Each ride costs **5 from the driver and 5 from the commuter**, charged **when
-the driver accepts** (no refund). Topping-up / buying credits is intentionally **out of scope** for the MVP.
+A flat **₱30/month subscription** (first month free, 3-day grace) **gates access** — commuters can book and drivers
+can go online. It is **not** a per-ride fare; fares are **cash, paid to the driver outside the app**. Renewals are
+manual via **GCash** (reference number, admin-reviewed). _(An earlier MVP used per-ride credits; retired in `0008`.)_
 
 ## Tech stack (short version)
 
 - **Frontend:** React (Vite) + TypeScript + Tailwind, built as a mobile-first **PWA**
 - **Backend + DB:** **Supabase** — Postgres, Auth, Realtime, and **Postgres `SECURITY DEFINER` RPC functions** for the
-  trusted dispatch/credit logic (no Edge Functions / no CLI needed)
+  trusted dispatch & subscription logic (no CLI needed). A single Edge Function (`notify-driver`) sends Web Push.
 - **Auth:** **phone number + dummy OTP (`1234`)** — no email, no password (see `docs/TECH_STACK.md`)
 - **Maps:** **OpenStreetMap + Leaflet** — free, no API key (no geocoding; address is typed)
+- **Notifications:** native **Web Push** so drivers get ride offers even with the app closed (VAPID + the
+  `notify-driver` Edge Function); installable **PWA** with an update prompt
 - **Queue scope:** a **single subdivision** for the MVP
 
 See [`docs/TECH_STACK.md`](docs/TECH_STACK.md) for the full breakdown and rationale.
@@ -51,7 +55,7 @@ npm run dev          # Vite dev server (localhost)
 ```
 
 1. Copy `.env.example` → `.env.local` and fill in your Supabase **URL** + **anon key**.
-2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0006`).
+2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0012`).
    (No Supabase CLI/Docker required — everything server-side is plain SQL/RPC.)
 3. In Supabase **Auth → Providers → Email**, turn **"Confirm email" OFF** (phone sign-ups use synthetic emails).
 
@@ -82,7 +86,7 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 
 **Backend → Supabase** (one-time, managed — you just apply SQL):
 
-- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0011`). Order matters — later files
+- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0012`). Order matters — later files
   redefine earlier functions and `0008` drops the old `credits`/`transactions`.
 - **Auth → Providers → Email → "Confirm email" OFF** (phone sign-ups use synthetic, non-routable emails).
 - Bootstrap the first admin: `update public.profiles set is_admin = true where phone = '<your phone>';`
@@ -92,5 +96,6 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 > Use a **separate Supabase project for prod vs. dev** so you never demo against live data. Full detail —
 > what-calls-what, Storage-policy caveats, post-deploy checklist — is in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-> **Status:** MVP core loop complete (Phases 1–7). Remaining work and the next steps are in
-> [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> **Status:** Core loop, ₱30/mo subscription + GCash renewal, driver verification, and Web Push ride alerts are built
+> (migrations `0001`–`0012`); the PWA is **deployed on Vercel**. The main pre-launch blocker is real SMS OTP (the
+> dummy `1234` is still in place). Remaining work and next steps are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
