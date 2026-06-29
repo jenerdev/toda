@@ -13,6 +13,9 @@ export interface DriverLocationPublish {
   status: LocPublishStatus
   /** The driver's own latest fix, so their map can show where they are. */
   coords: { lat: number; lng: number } | null
+  /** Reported accuracy of the latest fix, in metres (null until first fix).
+      A large value usually means iOS "Precise Location" is off for the site. */
+  accuracy: number | null
 }
 
 /**
@@ -25,11 +28,13 @@ export interface DriverLocationPublish {
 export function useDriverLocationPublisher(enabled: boolean): DriverLocationPublish {
   const [status, setStatus] = useState<LocPublishStatus>('idle')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [accuracy, setAccuracy] = useState<number | null>(null)
 
   useEffect(() => {
     if (!enabled) {
       setStatus('idle')
       setCoords(null)
+      setAccuracy(null)
       return
     }
     if (!('geolocation' in navigator)) {
@@ -40,11 +45,13 @@ export function useDriverLocationPublisher(enabled: boolean): DriverLocationPubl
     setStatus('starting')
 
     const publish = (pos: GeolocationPosition) => {
-      // Ignore low-quality fixes that would jump the marker far off — wait for
-      // a sharper one rather than publishing a coarse network/IP location.
-      if (pos.coords.accuracy != null && pos.coords.accuracy > 1000) return
+      // Publish the best fix we get and surface its accuracy. We don't silently
+      // drop coarse fixes — that just freezes the marker at a stale spot with no
+      // explanation. Instead the UI warns the driver when accuracy is poor
+      // (usually iOS "Precise Location" off), which is the actionable fix.
       setStatus('publishing')
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+      setAccuracy(pos.coords.accuracy ?? null)
       void supabase.rpc('update_driver_location', {
         p_lat: pos.coords.latitude,
         p_lng: pos.coords.longitude,
@@ -71,5 +78,5 @@ export function useDriverLocationPublisher(enabled: boolean): DriverLocationPubl
     return () => navigator.geolocation.clearWatch(watchId)
   }, [enabled])
 
-  return { status, coords }
+  return { status, coords, accuracy }
 }

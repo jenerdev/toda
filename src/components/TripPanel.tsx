@@ -38,6 +38,7 @@ export function TripPanel({
   cancelling,
   locationStatus,
   driverCoords,
+  locationAccuracy,
 }: {
   ride: Ride
   onComplete: () => void
@@ -46,9 +47,13 @@ export function TripPanel({
   cancelling: boolean
   locationStatus: LocPublishStatus
   driverCoords: { lat: number; lng: number } | null
+  locationAccuracy: number | null
 }) {
   const { data: rider } = useCounterpart(ride.id, true)
   const loc = LOC_MESSAGE[locationStatus]
+  // A coarse fix (≳100m) means the rider sees you in the wrong spot — almost
+  // always iOS "Precise Location" turned off for this site.
+  const coarse = locationStatus === 'publishing' && locationAccuracy != null && locationAccuracy > 100
 
   return (
     <div className="flex flex-col gap-3">
@@ -69,6 +74,14 @@ export function TripPanel({
         {loc.text && (
           <p className={'mt-2 text-xs ' + (loc.warn ? 'text-red-600' : 'text-gray-400')}>
             {loc.text}
+          </p>
+        )}
+        {coarse && (
+          <p className="mt-2 text-xs text-amber-600">
+            ⚠️ Your location looks approximate (±{Math.round(locationAccuracy!)}m), so the rider may
+            see you in the wrong spot. Turn on <span className="font-medium">Precise Location</span>{' '}
+            for this site: iOS Settings → Privacy &amp; Security → Location Services → your browser →
+            Precise Location.
           </p>
         )}
       </div>
