@@ -10,7 +10,7 @@ where you are, and the **next driver in the queue** is dispatched to you.
 
 1. **Driver** registers (phone + one-time code) and goes **online** → joins the back of the queue.
 2. **Commuter** logs in, **types a pickup address**, and **pins their current location** on the map.
-3. The **first available driver** is notified → **Accept** or **Decline** (pickup details are revealed only on accept).
+3. The **first available driver** is notified **with the pickup shown up-front** → **Accept** or **Decline**. On a **far pickup** the driver can request a small **distance surcharge** that the commuter approves first (paid in cash).
 4. Decline / no response (30s) → the **next driver** is notified, and so on.
 5. Accept → the commuter sees **"driver on the way"** with a **live map** + **chat**. The fare is **cash, paid to the
    driver outside the app** — the app never handles ride money.
@@ -55,7 +55,7 @@ npm run dev          # Vite dev server (localhost)
 ```
 
 1. Copy `.env.example` → `.env.local` and fill in your Supabase **URL** + **anon key**.
-2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0012`).
+2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0013`).
    (No Supabase CLI/Docker required — everything server-side is plain SQL/RPC.)
 3. In Supabase **Auth → Providers → Email**, turn **"Confirm email" OFF** (phone sign-ups use synthetic emails).
 
@@ -86,7 +86,7 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 
 **Backend → Supabase** (one-time, managed — you just apply SQL):
 
-- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0012`). Order matters — later files
+- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0013`). Order matters — later files
   redefine earlier functions and `0008` drops the old `credits`/`transactions`.
 - **Auth → Providers → Email → "Confirm email" OFF** (phone sign-ups use synthetic, non-routable emails).
 - Bootstrap the first admin: `update public.profiles set is_admin = true where phone = '<your phone>';`
@@ -97,5 +97,5 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 > what-calls-what, Storage-policy caveats, post-deploy checklist — is in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 > **Status:** Core loop, ₱30/mo subscription + GCash renewal, driver verification, and Web Push ride alerts are built
-> (migrations `0001`–`0012`); the PWA is **deployed on Vercel**. The main pre-launch blocker is real SMS OTP (the
+> (migrations `0001`–`0013`); the PWA is **deployed on Vercel**. The main pre-launch blocker is real SMS OTP (the
 > dummy `1234` is still in place). Remaining work and next steps are in [`docs/ROADMAP.md`](docs/ROADMAP.md).

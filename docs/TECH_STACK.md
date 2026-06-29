@@ -41,7 +41,8 @@ the app and keep it open to receive offers — and, with Web Push, get offers ev
   boilerplate for an MVP.
 - **Row-Level Security** gives per-user data isolation declaratively.
 - Trusted server logic lives in **Postgres `SECURITY DEFINER` RPCs** (`book_ride`, `respond_offer`,
-  `complete_ride`, …); a single **Edge Function** (`notify-driver`) handles only outbound Web Push.
+  `approve_surcharge`/`reject_surcharge`, `complete_ride`, …); a single **Edge Function** (`notify-driver`) handles
+  only outbound Web Push.
 - Free tier is enough to build and demo. No vendor lock-in on the data — it's plain Postgres, exportable any time.
 
 ## Why OpenStreetMap/Leaflet over Google Maps (for MVP)

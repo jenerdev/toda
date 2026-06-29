@@ -21,7 +21,7 @@ deployed** (Vercel; repo [github.com/jenerdev/toda](https://github.com/jenerdev/
 | **Subscription & access** | Flat **₱30/month** gates access (commuter can book; driver can go online). **First month free**, **3-day grace** after expiry. Manual **GCash** renewal (ref number + optional screenshot) reviewed by an admin. ✅ Built (`0008`–`0010`) — **per-ride credits were retired**; the app never touches fares (cash, outside the app). See [`MONETIZATION.md`](MONETIZATION.md). |
 | **Driver queue** | Online/offline toggle. Going online joins the **back** of a single FIFO queue. Live queue list + your position. A client **heartbeat** keeps an online driver dispatchable; stale (closed-tab) drivers fall out after 60s. |
 | **Booking** | Commuter **types the pickup address** (free text, shown to the driver) and **must pin their current GPS location** (required before booking — the primary button pins location first, then becomes "Find me a driver") on a Leaflet map (coordinates power the live-tracking map). |
-| **Dispatch** | First available driver is offered the ride **with the pickup address + map shown up-front**. Decline / timeout → next driver. Accept → commuter notified. Either side can **cancel after accept** (driver re-queued). |
+| **Dispatch** | First available driver is offered the ride **with the pickup address + map shown up-front**. Decline / timeout → next driver. Accept → commuter notified. Either side can **cancel after accept** (driver re-queued). On a **far pickup (≥1 km)** the driver may request a **distance surcharge** (+₱5 steps, max ₱50) that the commuter approves before the ride; decline → next driver. ✅ Built (`0013`). |
 | **Ride lifecycle** | `searching → accepted → enroute → completed` (plus `cancelled`, `no_drivers`). |
 | **Re-queue** | After completing, the driver returns to the **end** of the queue. |
 | **Realtime** | Drivers see incoming offers instantly; commuters see status changes instantly. |
@@ -42,7 +42,7 @@ deployed** (Vercel; repo [github.com/jenerdev/toda](https://github.com/jenerdev/
 | **Multiple zones / subdivisions** | MVP is one shared queue. Multi-zone needs geofencing + per-zone queues — also the monetization growth lever. |
 | **Ratings & reviews** | Not needed to prove the core loop. |
 | **Voice calling** | Tap-to-call the shared phone number covers this; in-app chat is built. |
-| **Fare/pricing in-app** | Out of scope **by design** — the fare is cash, paid to the driver outside the app (see [`LEGAL.md`](LEGAL.md)). |
+| **Fare/pricing in-app** | The base fare stays cash, outside the app **by design**. The one exception is the optional **distance pickup surcharge** (`0013`): the app *relays/records* an agreed amount, but the money is still cash and it doesn't set fares (see [`LEGAL.md`](LEGAL.md)). |
 | **Native iOS / Android apps** | PWA covers the MVP; native is a v2 reusing the same backend. |
 
 ## Success criteria
