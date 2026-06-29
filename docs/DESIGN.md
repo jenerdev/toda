@@ -5,9 +5,11 @@ Mobile-first. Single-thumb reachable. The two roles see different homes after lo
 ## Design language
 
 - **Tone:** clear, fast, "get me a ride." No clutter — one primary action per screen.
-- **Color:** one strong accent for primary actions (e.g. a confident green/teal for "Find me a driver" and "Accept");
-  red only for "Decline" / "Cancel" / destructive; neutral grays for surfaces. Status uses color + a label (never
-  color alone).
+- **Color:** brand **teal (`#0d9488`)** for primary actions ("Find me a driver", "Accept", "Go online"); a brighter
+  **emerald green** reserved for celebratory "go" moments — the driver's **"You're next up"** queue state and the
+  commuter's **"A driver is available!"** state (both with a live pulse); red only for "Decline" / "Cancel" /
+  destructive; amber for soft warnings (e.g. coarse GPS); neutral grays for surfaces. Status uses color + a label
+  (never color alone).
 - **Type:** large, legible system font stack. Big tap targets (≥44px). Generous spacing.
 - **Layout:** full-bleed map where relevant, content in bottom sheets/cards (thumb zone), sticky primary button.
 - **Feedback:** every async action shows a loading and a clear success/error state. Realtime updates animate in.
@@ -38,9 +40,11 @@ Mobile-first. Single-thumb reachable. The two roles see different homes after lo
 ```
 
 Shared chrome: top bar with the app name + role, a **subscription badge** (shows the expiry date), an **Activity**
-link (all users) + an **Admin** link (admins only), and sign-out. Beyond the two role homes there are three more
-routes: **`/history`** (Activity), **`/admin`** (review queue), and the in-place **Renew** flow (shown when access
-lapses).
+link (all users) + an **Admin** link (admins only), and sign-out. A small **build-id stamp** sits in the footer (so
+you can confirm which deploy you're on). As a PWA it also surfaces a dismissible **"Install MotoQueue"** banner (with
+an iOS "Share → Add to Home Screen" variant) and a **"new version available — Reload"** banner when an updated service
+worker is waiting. Beyond the two role homes there are three more routes: **`/history`** (Activity), **`/admin`**
+(review queue), and the in-place **Renew** flow (shown when access lapses).
 
 ## Screen inventory & wireframes
 
@@ -69,19 +73,24 @@ lapses).
 ┌──────────────────────────┐
 │ Hi, Ana    🎫 until Jul 19│  ← subscription badge (expiry date)
 ├──────────────────────────┤
-│                          │
 │  Pickup address          │
 │  [ Blk/Lot, st, landmark]│  ← free text, shown to driver
-│                          │
-│  📍 Use my current loc.  │
-│      [   MAP w/ pin  ]   │  ← pins coordinates for live tracking
+│      [   MAP w/ pin  ]   │  ← your live-tracking location
 │        📍 (draggable)     │
 ├──────────────────────────┤
-│  [   Find me a driver   ] │  ← disabled if no address
+│  To find a driver:       │  ← checklist; hides once both ✓
+│   ✓ Pin your location     │
+│   ○ Enter pickup address   │
+│  [ 📍 Pin my current loc.]│  ← step 1 (then becomes "Find me a driver")
 └──────────────────────────┘
 ```
+- **Pinning your current GPS location is required** before booking — a driver can't be matched without it. The flow is
+  **two-step on one button**: first **"📍 Pin my current location"** (captures GPS), then it switches to
+  **"Find me a driver"** (still needs a pickup address). The old standalone "Use my current location" button was
+  removed. A **"To find a driver:"** checklist shows what's left (pin location / enter address) and disappears once
+  both are done. After pinning, the pin is draggable to fine-tune.
 - If the subscription has lapsed, the whole booking UI is **replaced by the Renew panel** (booking is also gated
-  server-side). Busy label: "Finding a driver…".
+  server-side). Busy labels: "Locating…" then "Finding a driver…".
 
 ### Ride Status (commuter)
 ```
@@ -102,7 +111,14 @@ lapses).
 ```
 States: `searching` (spinner + cancel) · `accepted/enroute` (driver card + **live tracking map** + **chat** +
 **Ride complete** + a **Cancel ride** button) · `completed` (returns to booking; fare paid in cash to the driver) ·
-`no_drivers` (retry). The accepted view also shows **quick-reply chips** above the chat input.
+`no_drivers` (see below). The accepted view also shows **quick-reply chips** above the chat input.
+
+The **`no_drivers`** screen (`NoDriversPanel`) offers more than a retry: alongside **Try again**, the commuter can tap
+**"🔔 Notify me when a driver's available"** to arm a watch on the live queue. While watching it shows a pulsing
+"Watching for a driver…" (with a Stop option); the moment a driver comes online it flips to a green
+**"🎉 A driver is available! → Book now"** state that **re-books in one tap** (reusing the pinned location), and fires
+a **system notification** if the commuter granted permission. (Works while the app is open/backgrounded; waking a
+fully-closed app would need Web Push — see ROADMAP.)
 
 ### Driver Home — queue
 ```
@@ -111,15 +127,28 @@ States: `searching` (spinner + cancel) · `accepted/enroute` (driver card + **li
 ├──────────────────────────┤
 │   Status:  ● Online       │
 │   [   Go offline   ]      │
-│                          │
-│   You are #2 in queue     │
-│   ─────────────────────   │
-│   Queue (4 online)        │
-│   1. ● available          │
-│   2. ● you                │
-│   3. ● available          │
+├──────────────────────────┤
+│  🔔 Don't miss a ride…    │  ← Enable ride alerts (Web Push) opt-in
+│  [ Enable ride alerts ]   │
+├──────────────────────────┤
+│   4            #2          │  ← available count   ·   your position
+│   drivers available        │
+│   2 drivers ahead of you.  │
+└──────────────────────────┘
+   when you're first in line ▼
+┌──────────────────────────┐
+│  ● You're next up         │  ← emerald card + live pulse
+│  The next ride is yours.  │
 └──────────────────────────┘
 ```
+- The queue is an **anonymized summary** (`QueueStatus`), not a per-driver list: the **count of available drivers** +
+  **your own position** (bigger number when you're in line), plus a status line ("2 drivers ahead of you"). We
+  **don't show other drivers' names** — RLS keeps profiles private, so the list is intentionally anonymized.
+- When you're **first in line** the whole card turns **emerald green with a live pulse — "You're next up"** — so it's
+  unmistakable at a glance that the next request is yours. (The old redundant "you're #N in queue" badge above the
+  toggle was removed; position now lives only in this summary.)
+- **Ride alerts:** an approved, subscribed driver sees an **"Enable ride alerts"** card (Web Push opt-in) so offers
+  reach them even when the app is closed / the phone is locked; once on, it shows a quiet "🔔 Ride alerts on" line.
 - Offline state: big **[ Go online ]** button, "You're offline — go online to receive rides." If the subscription has
   lapsed, the **Renew panel** appears above the toggle and **Go online is disabled**.
 
@@ -144,14 +173,18 @@ States: `searching` (spinner + cancel) · `accepted/enroute` (driver card + **li
 │   On trip 🛵 with Ana     │
 │   📞 0917-xxx-xxxx        │
 │   Pickup: 12 Acacia St    │
-│   📡 Sharing live location │  ← or a warning if blocked
-│   [   MAP of pickup pin ] │
+│   📡 Sharing live location │  ← or a warning if blocked/approximate
+│   [  MAP: 🏍️ you + 📍 pickup]│  ← your own live position + pickup
 │   [   Chat + quick replies]│
 │   [    Mark complete   ]  │
 │   [     Cancel trip     ]  │  ← cancel_accepted_ride → back to queue
 └──────────────────────────┘
    → completing re-queues you at the back. Fare is paid in cash, outside the app.
 ```
+- The trip map (shared `RouteMap`) plots the **driver's own live location (🏍️) alongside the pickup (📍)** and
+  auto-fits to both — so the driver sees where they are relative to the rider, not just the destination.
+- If the GPS fix is **coarse** (commonly **iOS "Precise Location" off**), an **amber warning** tells the driver the
+  rider may see them in the wrong spot, with the exact setting to fix it.
 
 ### Renew / subscription ✅ _(built — `RenewPanel`; see [`MONETIZATION.md`](MONETIZATION.md))_
 ```
@@ -232,15 +265,26 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
 
 - `SubscriptionBadge` — subscription status in the top bar (live); shows the expiry date, an "Nd" nudge in the last
   week, and Grace/Expired states. *(Replaced the old `CreditBadge`.)*
-- `MapPicker` — Leaflet map, draggable pin, "use my current location" (coordinates only — no geocoding).
-- `QueueList` — live, anonymized ordering + "you are #N."
+- `MapPicker` — Leaflet map, draggable pin (coordinates only — no geocoding). The commuter pins via the booking
+  button's "Pin my current location" step, then can drag to fine-tune.
+- `QueueStatus` — anonymized queue **summary**: available-driver count + the driver's own position, with a distinct
+  emerald **"You're next up"** state (live pulse) when first in line. *(Replaced the old per-driver `QueueList`.)*
 - `OfferCard` — countdown + accept/decline; **shows the pickup address + a pinned `PickupMap` up-front**.
 - `RideStatusPanel` — commuter's state machine (searching / on-the-way / no-drivers); embeds `LiveTrackMap` + `Chat`;
-  Ride-complete + Cancel-ride actions.
-- `TripPanel` — driver's accepted-ride view; pickup address + `PickupMap` + `Chat` + location-sharing status;
-  complete + cancel-trip actions.
-- `LiveTrackMap` — commuter's live view of the driver moving toward the pickup.
-- `PickupMap` — read-only map of the commuter's pinned location (shown in the offer and the trip panel).
+  Ride-complete + Cancel-ride actions. The no-drivers state renders `NoDriversPanel`.
+- `NoDriversPanel` — no-drivers screen: Try again **+** "Notify me when a driver's available" watch → "A driver is
+  available! → Book now" (one-tap re-book) + a system notification (`useAvailableDrivers`).
+- `TripPanel` — driver's accepted-ride view; pickup address + `RouteMap` (own live location + pickup) + `Chat` +
+  location-sharing status (incl. a coarse-GPS / Precise-Location warning); complete + cancel-trip actions.
+- `RouteMap` — shared live map: a 🏍️ driver marker (when known) + a 📍 pickup marker, auto-fit to both. Used by both
+  the commuter (`LiveTrackMap`) and the driver (`TripPanel`).
+- `LiveTrackMap` — commuter's live view of the driver moving toward the pickup (wraps `RouteMap`, driver position read
+  from the DB).
+- `PickupMap` — read-only map of the commuter's pinned location (shown in the offer).
+- `InstallBanner` — dismissible PWA "Install MotoQueue" prompt (native `beforeinstallprompt` + iOS Share-sheet steps).
+- `ReloadPrompt` — "new version available — Reload" banner when an updated service worker is waiting.
+- `RideAlertsToggle` — driver Web Push opt-in ("Enable ride alerts") so offers arrive with the app closed/locked
+  (`usePushNotifications`).
 - `Chat` — in-ride messaging between the two participants; optional one-tap **`quickReplies`** chips (driver and
   commuter get role-specific canned Tagalog phrases).
 - `RenewPanel` ✅ — subscription status + GCash number + reference-number/screenshot submission; pending/approved/
@@ -252,7 +296,12 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
 
 ## Empty / error states (don't skip)
 
-- No drivers online (commuter books) → "No drivers nearby right now — try again in a moment."
-- Geolocation denied → keep the default center; the commuter pins on the map manually (address is typed regardless).
-- Driver location blocked / insecure origin → trip panel warns the driver the rider can't see them.
+- No drivers online (commuter books) → "No drivers available right now." with **Try again** + a **"Notify me when a
+  driver's available"** watch (re-books on one tap when one comes online).
+- Geolocation denied → the commuter stays on the "Pin my current location" step (pinning is required to book); the
+  error points them to enable permission. (On a laptop, geolocation is IP-based and may be approximate.)
+- Driver location blocked / insecure origin → trip panel warns the driver the rider can't see them; a **coarse/approximate
+  fix** (e.g. iOS Precise Location off) shows an amber warning with the fix.
+- Notifications blocked → the "Enable ride alerts" / notify-me prompts explain how to re-enable (and, on iPhone, that
+  the PWA must be installed to the Home Screen first).
 - Network/realtime drop → reconnect banner; never leave a spinner forever. *(reconnect banner still TODO — see ROADMAP)*

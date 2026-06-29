@@ -27,9 +27,17 @@
                 │        │ complete_ride · cancel…  │          │
                 │        │ get_counterpart · sweep  │          │
                 │        └──────────────────────────┘          │
-                └─────────────────────────────────────────────┘
+                │                                              │
+                │  ride_offers INSERT ─► DB Webhook ─►         │
+                │      Edge Function: notify-driver ───┐       │
+                └──────────────────────────────────────┼──────┘
+                                                        ▼
+                                         Web Push service ─► Driver service worker
+                                         (ride-offer push, even app-closed)
 
-   External: OpenStreetMap tiles (called from the client). No geocoding service.
+   Frontend deployed on Vercel (static PWA); backend is hosted Supabase.
+   External: OpenStreetMap tiles (called from the client); a Web Push service
+   (delivers offer pushes via notify-driver). No geocoding service.
 ```
 
 **Principle:** the client renders and reads; anything that touches **access (subscriptions/renewals)** or **queue
@@ -42,13 +50,14 @@ to the driver outside the app.)
 
 | Component | Responsibility |
 |-----------|----------------|
-| **Commuter PWA** | Type pickup address + pin current location, call `book_ride` (gated on an active subscription), watch the ride live, see the driver's live location + chat after accept, call `complete_ride` / `cancel_accepted_ride`. Renew via `RenewPanel` when access lapses. |
-| **Driver PWA** | Toggle online (join/leave queue; gated on an active subscription), heartbeat while online, receive offers **with the pickup address + map up-front**, Accept/Decline (`respond_offer`), chat + stream GPS while on a trip, `complete_ride` / `cancel_accepted_ride`. |
+| **Commuter PWA** | Type pickup address + pin current location, call `book_ride` (gated on an active subscription), watch the ride live, see the driver's live location + chat after accept, call `complete_ride` / `cancel_accepted_ride`. Renew via `RenewPanel` when access lapses. On a `no_drivers` result, arm a watch (`useAvailableDrivers`) that alerts + offers one-tap re-book when a driver comes online. |
+| **Driver PWA** | Toggle online (join/leave queue; gated on an active subscription), heartbeat while online, receive offers **with the pickup address + map up-front**, Accept/Decline (`respond_offer`), chat + stream GPS while on a trip (and see their **own** GPS on the trip map), `complete_ride` / `cancel_accepted_ride`. Opt into **ride-offer push** so offers arrive even when the app is closed. |
 | **Supabase Auth** | Identity (phone → synthetic email); `auth.uid()` powers RLS. |
 | **Postgres + RLS** | Source of truth. Users see only rows they're entitled to. |
 | **Supabase Storage** | Private `renewal-screenshots` bucket (per-user folders); the admin views proof via short-lived **signed URLs**. |
 | **Realtime** | Pushes offers to drivers, ride status to commuters, queue + driver location to both, chat messages, and renewal-status changes. |
 | **SECURITY DEFINER functions** | Trusted dispatch, queue ordering, subscription gating, and renewal review (`submit_renewal`/`review_renewal`). |
+| **`notify-driver` Edge Function** | The app's **only** Edge Function, and **outbound-only**: triggered by a Database Webhook on `ride_offers` INSERT, it reads the offered driver's `push_subscriptions` (service role) and sends a VAPID **Web Push** so the offer reaches the driver even when the app is closed / phone locked. No dispatch or trust logic lives here — that stays in the RPCs. |
 
 ## The queue
 
@@ -78,8 +87,10 @@ Order is **FIFO by `queued_at` ascending**. Mutations:
 > functions (RPC)** — `book_ride`, `respond_offer`, `cancel_ride`, `cancel_accepted_ride`, `get_counterpart`,
 > `expire_stale_offers`, and the internal `_offer_to_next_driver` — rather than Edge Functions. Same trust boundary
 > (`security definer` + `auth.uid()` checks; RLS still blocks direct table writes), but no CLI/Docker to deploy,
-> atomic transactions, and the timeout sweep reuses the same dispatch routine. Edge Functions remain a valid
-> alternative if logic later needs to call external services. The flow below is unchanged; "Edge Function" = these RPCs.
+> atomic transactions, and the timeout sweep reuses the same dispatch routine. The flow below is unchanged; in the
+> diagram "RPC (SECURITY DEFINER)" = these functions. *(The app does now have exactly **one** Edge Function,
+> `notify-driver`, but it carries no dispatch/trust logic — it only fans a ride offer out as a Web Push. See the PWA &
+> notifications section.)*
 
 ## Dispatch flow (the heart of the app)
 
@@ -123,8 +134,10 @@ sequenceDiagram
   calls `respond_offer` with `decline`, which marks the offer and dispatches the next driver.
 - **Safety net:** a `pg_cron` job (or an expiry check inside `respond_offer`) sweeps for `pending` offers older than
   the timeout and expires them + advances the queue — so a driver who closes the tab can't stall a ride forever.
-- **No drivers left:** if there is no next available driver, the ride is set to `no_drivers` and the commuter is told
-  to try again shortly.
+- **No drivers left:** if there is no next available driver, the ride is set to `no_drivers`. The commuter can retry,
+  or arm a watch (`useAvailableDrivers`, live on `driver_states`) that alerts them and offers a **one-tap re-book**
+  (reusing the pinned pickup) the moment a driver comes online — in-app via the Notifications API; for a closed app
+  this is the job of the ride-offer Web Push (below).
 
 ## Fares & money
 
@@ -152,7 +165,9 @@ BSP e-money regulation.
   (stacking onto remaining time). The same `is_admin` role + signed-URL machinery is reserved for the planned driver
   verification.
 - **No money moves through the app.** GCash handles the actual peso transfer; MotoQueue only records the claim and an
-  admin confirms it. So there is still **no payment processor / service-role key** in this app.
+  admin confirms it. There is still **no payment processor** in this app. *(There is one server-side secret now — the
+  Supabase **service-role key** — but it lives only in the `notify-driver` Edge Function's environment, used to read
+  `push_subscriptions` when sending a push. It is never shipped to the client.)*
 
 ## Realtime channels
 
@@ -164,9 +179,32 @@ BSP e-money regulation.
 | Commuter (active ride) | `driver_states` (driver's location) | Move the driver marker on the live map |
 | Both (active ride) | `messages` for the ride | Append new chat messages |
 | Anyone on queue screen | `driver_states` changes | Update live online count / position |
+| Commuter (no-drivers watch) | `driver_states` changes | Alert + offer one-tap re-book when a driver becomes available |
 | Any signed-in user | `profiles` (own row) | Update the subscription badge live (e.g. after a renewal is approved) |
 | Any signed-in user | `renewals` for me | Flip the renewal status (pending → approved/rejected) in place |
 | Admin | `renewals` (all) | Refresh the pending-review queue as submissions arrive |
+
+## PWA & notifications
+
+The frontend is an installable PWA (built with `vite-plugin-pwa`) deployed as a static bundle on Vercel.
+
+- **Install & update.** `usePwaInstall` / `InstallBanner` capture the browser's install prompt (with an iOS
+  Add-to-Home-Screen fallback). The service worker uses the **`prompt`** update strategy: a new build surfaces a
+  "Reload" banner (`ReloadPrompt`, via `useRegisterSW`) instead of silently swapping, so it's explicit which version
+  is live. A small **build-id footer** (`__BUILD_ID__`, injected from the Vercel commit SHA via Vite `define`) makes
+  the running version visible at a glance.
+- **Ride-offer Web Push (closed-app / locked-phone).** Drivers opt in (`usePushNotifications` / `RideAlertsToggle`),
+  which stores their browser push subscription in the **`push_subscriptions`** table (`0012`; one row per device,
+  user-scoped by RLS). When `_offer_to_next_driver` inserts a `ride_offers` row, a Supabase **Database Webhook** (on
+  `ride_offers` INSERT) POSTs to the **`notify-driver`** Edge Function with a shared `x-webhook-secret` header. The
+  function (VAPID keys + service role) looks up that driver's subscriptions and sends a Web Push; the service worker's
+  push handlers (`public/push-sw.js`, pulled into the generated SW via `workbox.importScripts`) show the notification
+  even with the app fully closed, and pruning removes dead subscriptions (404/410).
+- **iOS caveat.** Web Push on iOS works **only for an installed PWA** (Add to Home Screen, iOS 16.4+) — never in a
+  Safari tab — so drivers must install the app to receive offers when it's closed.
+
+This Web Push path is the **one** place trusted server logic reaches outside Postgres; everything access- or
+fairness-related still lives in the RPCs.
 
 ## Trust & security
 
@@ -179,5 +217,8 @@ BSP e-money regulation.
   they're acting on) before doing anything.
 - Chat inserts and driver-location updates go direct from the client but are constrained by RLS / a self-only RPC.
   Renewal screenshots live in a **private** Storage bucket (per-user folder); reads are owner-or-admin via signed URLs.
+- `push_subscriptions` rows are **user-scoped by RLS** (you only ever touch your own). The `notify-driver` Edge
+  Function reads them with the **service-role key** (server-only) and is itself gated by a shared `x-webhook-secret`,
+  so only the Database Webhook can invoke it.
 
 See [`DATA_MODEL.md`](DATA_MODEL.md) for the concrete schema and RLS policies.

@@ -14,6 +14,7 @@ profiles   1───*  ride_offers (as driver_id)
 rides      1───*  messages
 profiles   1───*  renewals (as user_id)
 profiles   1───1  driver_applications (as driver_id)
+profiles   1───*  push_subscriptions (as user_id)
 ```
 
 > **Removed in `0008`:** the per-ride **credit** system. `profiles.credits` and the entire `transactions` ledger were
@@ -141,6 +142,24 @@ Kept separate from the world-readable `driver_states` so document paths + reject
 > driver can't reset themselves). `review_driver` (admin-check inside) flips to `approved`/`rejected`. License images
 > are PII — the bucket is private with signed-URL reads; a retention/deletion policy is still TODO.
 
+### `push_subscriptions` _(driver ride-offer Web Push — `0012`)_
+One row per browser/device that opted into Web Push notifications. A driver may have several (one per device). The
+`notify-driver` Edge Function reads these (via the service role) and sends a push when a `ride_offers` row is inserted
+for that driver, so an offer reaches them even when the app is closed / phone is locked.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | `uuid` PK | default `gen_random_uuid()` |
+| `user_id` | `uuid` | FK → `profiles.id` (on delete cascade) — the subscriber |
+| `endpoint` | `text` **UNIQUE** | the push service URL for this device; uniqueness lets the client upsert on re-subscribe |
+| `p256dh` | `text` | client public key used to encrypt the push payload |
+| `auth` | `text` | client auth secret used to encrypt the push payload |
+| `created_at` | `timestamptz` | default `now()` |
+
+> The client subscribes via `usePushNotifications` (after permission) and upserts its subscription by `endpoint`.
+> Dead endpoints (HTTP 404/410 on send) are pruned by the `notify-driver` Edge Function. iOS requires an **installed
+> PWA** (Add to Home Screen, iOS 16.4+) for Web Push.
+
 ## Indexes
 
 ```sql
@@ -154,6 +173,8 @@ create unique index on renewals (gcash_ref);         -- block reference-number r
 create index on renewals (status, created_at);       -- admin pending-review queue
 create index on renewals (user_id, created_at desc); -- a user's renewal history
 create index on driver_applications (status, submitted_at); -- admin pending-verification queue
+create unique index on push_subscriptions (endpoint);       -- one row per device; upsert on re-subscribe
+create index on push_subscriptions (user_id);               -- a driver's devices (lookup when sending)
 ```
 
 ## Row-Level Security (summary)
@@ -169,6 +190,7 @@ RLS is **enabled on every table**. Policies (enforced by `auth.uid()`):
 | `messages` | ride participants only | INSERT as self, ride participants only (direct, no trust concern) |
 | `renewals` | own rows; **admins** read all | **none directly** — INSERT via `submit_renewal` (`status='pending'`); `status`/expiry set **only** by `review_renewal` (admin-check inside the function) |
 | `driver_applications` | own row; **admins** read all | **none directly** — upsert via `submit_driver_application` (`status='pending'`); `status` set **only** by `review_driver` (admin-check inside the function) |
+| `push_subscriptions` | own rows (`user_id = uid`) | own rows (`user_id = uid`) — insert/update/delete directly (client manages its own device subscriptions). The `notify-driver` Edge Function reads any driver's rows via the **service role**. |
 
 **Trusted writes** (`subscription_until`, `is_admin`, queue ordering, ride status transitions, renewal status) happen
 exclusively in **Postgres `SECURITY DEFINER` functions** — `book_ride`, `respond_offer`, `cancel_ride`,
@@ -189,3 +211,6 @@ and read only by the owner or an admin via short-lived **signed URLs**.
   past the timeout, then advance to the next driver / `no_drivers`) and `reap_stale_drivers()` (mark drivers stale
   > 60s offline). Neither is required: the offer countdown + the client `driver_heartbeat` cover the live path; the
   sweeps only tidy displayed state.
+- **Database Webhook on `ride_offers` insert** (`0012`) → calls the `notify-driver` Edge Function, which looks up the
+  offered driver's `push_subscriptions` and sends a Web Push so the offer reaches them even when the app is closed.
+  Setup (VAPID keys, function secrets, webhook) is documented in [`DEPLOYMENT.md`](DEPLOYMENT.md).

@@ -4,7 +4,8 @@ The goal of the MVP is to **prove the end-to-end loop** for one subdivision:
 
 > queue → book → dispatch → accept/decline → on the way → complete → re-queue
 
-Everything else is deferred. Keeping scope tight is what makes this shippable quickly.
+Everything else is deferred. Keeping scope tight is what makes this shippable quickly. **Status: the MVP is built and
+deployed** (Vercel; repo [github.com/jenerdev/toda](https://github.com/jenerdev/toda)).
 
 > **What MotoQueue is:** a **dispatch / hailing tool** for **TODA-franchised tricycles** in one subdivision — *"find me
 > a driver, pick me up here."* It does **not** handle the **fare** (paid in cash directly to the driver, outside the
@@ -19,7 +20,7 @@ Everything else is deferred. Keeping scope tight is what makes this shippable qu
 | **Profiles** | Name, phone, role, `subscription_until`, `is_admin`. |
 | **Subscription & access** | Flat **₱30/month** gates access (commuter can book; driver can go online). **First month free**, **3-day grace** after expiry. Manual **GCash** renewal (ref number + optional screenshot) reviewed by an admin. ✅ Built (`0008`–`0010`) — **per-ride credits were retired**; the app never touches fares (cash, outside the app). See [`MONETIZATION.md`](MONETIZATION.md). |
 | **Driver queue** | Online/offline toggle. Going online joins the **back** of a single FIFO queue. Live queue list + your position. A client **heartbeat** keeps an online driver dispatchable; stale (closed-tab) drivers fall out after 60s. |
-| **Booking** | Commuter **types the pickup address** (free text, shown to the driver) and **pins their current location** on a Leaflet map (coordinates power the live-tracking map). |
+| **Booking** | Commuter **types the pickup address** (free text, shown to the driver) and **must pin their current GPS location** (required before booking — the primary button pins location first, then becomes "Find me a driver") on a Leaflet map (coordinates power the live-tracking map). |
 | **Dispatch** | First available driver is offered the ride **with the pickup address + map shown up-front**. Decline / timeout → next driver. Accept → commuter notified. Either side can **cancel after accept** (driver re-queued). |
 | **Ride lifecycle** | `searching → accepted → enroute → completed` (plus `cancelled`, `no_drivers`). |
 | **Re-queue** | After completing, the driver returns to the **end** of the queue. |
@@ -29,7 +30,8 @@ Everything else is deferred. Keeping scope tight is what makes this shippable qu
 | **Admin review** | An `is_admin` role + `/admin` page to review GCash renewals **and driver applications** (Approve/Reject with reason). ✅ Built (`0010`/`0011`). |
 | **Driver verification** | Drivers upload license + motorcycle photos for admin approval; can't go online until approved. ✅ Built (`0011`). |
 | **Activity history** | Per-user `/history`: ride/trip history + subscription-renewal history. ✅ Built. |
-| **PWA** | Installable to home screen, mobile-first layout. |
+| **Push notifications** | **Driver ride-offer push** via native Web Push (VAPID + a `notify-driver` Edge Function on a `ride_offers` DB webhook) — drivers get offers **even when the app is closed / phone locked**. ✅ Built & verified. Commuter-side **"notify me when a driver's available"** on the no-drivers screen (in-app + system notification while the app is alive), with one-tap re-book. ✅ Built. ⚠️ iOS Web Push needs the **installed PWA** (iOS 16.4+), not a Safari tab. |
+| **PWA** | Installable to home screen (install banner), mobile-first layout, offline shell, and a **"new version available → Reload"** prompt on update. ✅ Built. |
 
 ## ❌ Out of scope (future phases)
 
