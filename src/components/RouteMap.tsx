@@ -83,9 +83,8 @@ export function RouteMap({
                 [pickup.lat, pickup.lng],
               ]}
               color={ROUTE_COLOR}
-              weight={3}
-              opacity={0.6}
-              dashArray="6"
+              weight={4}
+              opacity={0.85}
             />
           )
         )}

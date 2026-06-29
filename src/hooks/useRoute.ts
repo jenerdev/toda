@@ -39,7 +39,7 @@ export function useRoute(driver: LatLng | null, to: LatLng): RouteResult {
     // straight-line fallback until the driver moved ~100m or the page reloaded.
     staleTime: Infinity,
     gcTime: 30 * 60_000,
-    retry: 2,
+    retry: 3,
     retryDelay: 2_000,
     refetchInterval: (query) => (query.state.data ? false : 15_000),
     queryFn: async ({ signal }) => {
