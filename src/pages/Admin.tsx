@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminRenewals, type PendingRenewal } from '../hooks/useAdminRenewals'
 import { useAdminDriverApplications, type PendingApplication } from '../hooks/useAdminDriverApplications'
+import { Loading, EmptyState, ErrorState } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { SUBSCRIPTION_PRICE } from '../lib/subscription'
 
 export default function Admin() {
+  const qc = useQueryClient()
   const { renewals, loading: rLoading, error: rError } = useAdminRenewals()
   const { applications, loading: aLoading, error: aError } = useAdminDriverApplications()
 
@@ -22,12 +24,15 @@ export default function Admin() {
           Check the license + motorcycle photos before approving. License images are PII — don't
           share them.
         </p>
-        {aLoading && <p className="text-center text-sm text-gray-400">Loading…</p>}
-        {aError && <p className="text-center text-sm text-red-600">{(aError as Error).message}</p>}
-        {!aLoading && applications.length === 0 ? (
-          <div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">
-            No pending driver applications. 🎉
-          </div>
+        {aLoading ? (
+          <Loading />
+        ) : aError ? (
+          <ErrorState
+            message="Couldn’t load driver applications."
+            onRetry={() => qc.invalidateQueries({ queryKey: ['adminDriverApplications'] })}
+          />
+        ) : applications.length === 0 ? (
+          <EmptyState>No pending driver applications. 🎉</EmptyState>
         ) : (
           applications.map((a) => <DriverApplicationCard key={a.driver_id} application={a} />)
         )}
@@ -42,12 +47,15 @@ export default function Admin() {
           Cross-check each GCash reference against the business account history (exists, ₱
           {SUBSCRIPTION_PRICE}, not reused) before approving.
         </p>
-        {rLoading && <p className="text-center text-sm text-gray-400">Loading…</p>}
-        {rError && <p className="text-center text-sm text-red-600">{(rError as Error).message}</p>}
-        {!rLoading && renewals.length === 0 ? (
-          <div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">
-            No pending renewals. 🎉
-          </div>
+        {rLoading ? (
+          <Loading />
+        ) : rError ? (
+          <ErrorState
+            message="Couldn’t load renewals."
+            onRetry={() => qc.invalidateQueries({ queryKey: ['adminRenewals'] })}
+          />
+        ) : renewals.length === 0 ? (
+          <EmptyState>No pending renewals. 🎉</EmptyState>
         ) : (
           renewals.map((r) => <RenewalCard key={r.id} renewal={r} />)
         )}

@@ -9,6 +9,7 @@ import { useDriverHeartbeat } from '../hooks/useDriverHeartbeat'
 import { useMyDriverApplication } from '../hooks/useMyDriverApplication'
 import { QueueStatus } from '../components/QueueStatus'
 import { RideAlertsToggle } from '../components/RideAlertsToggle'
+import { Loading, ErrorState } from '../components/States'
 import { OfferCard } from '../components/OfferCard'
 import { TripPanel } from '../components/TripPanel'
 import { RenewPanel } from '../components/RenewPanel'
@@ -26,6 +27,7 @@ export default function DriverHome() {
     myAvailability,
     myPosition,
     loading,
+    error: queueError,
     goOnline,
     goOffline,
   } = useDriverQueue(user?.id)
@@ -204,7 +206,12 @@ export default function DriverHome() {
 
       {/* Live queue summary (anonymized: counts + your position, no per-driver list) */}
       {loading ? (
-        <p className="text-center text-sm text-gray-400">Loading queue…</p>
+        <Loading label="Loading queue…" />
+      ) : queueError ? (
+        <ErrorState
+          message="Couldn’t load the queue."
+          onRetry={() => qc.invalidateQueries({ queryKey: ['driverQueue'] })}
+        />
       ) : (
         <QueueStatus
           availableCount={available.length}

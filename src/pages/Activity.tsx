@@ -1,6 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthProvider'
 import { useRideHistory } from '../hooks/useRideHistory'
 import { useRenewalHistory } from '../hooks/useRenewalHistory'
+import { Loading, EmptyState, ErrorState } from '../components/States'
 import type { Ride, RideStatus, Renewal, RenewalStatus } from '../types/db'
 
 const RIDE_BADGE: Record<RideStatus, { label: string; cls: string }> = {
@@ -29,8 +31,9 @@ function fmt(ts: string) {
 
 export default function Activity() {
   const { user, profile } = useAuth()
-  const { rides, loading: ridesLoading } = useRideHistory(user?.id, profile?.role)
-  const { renewals, loading: renewalsLoading } = useRenewalHistory(user?.id)
+  const qc = useQueryClient()
+  const { rides, loading: ridesLoading, error: ridesError } = useRideHistory(user?.id, profile?.role)
+  const { renewals, loading: renewalsLoading, error: renewalsError } = useRenewalHistory(user?.id)
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4">
@@ -42,9 +45,14 @@ export default function Activity() {
           {profile?.role === 'driver' ? 'Trip history' : 'Ride history'}
         </h3>
         {ridesLoading ? (
-          <p className="text-center text-sm text-gray-400">Loading…</p>
+          <Loading />
+        ) : ridesError ? (
+          <ErrorState
+            message="Couldn’t load your rides."
+            onRetry={() => qc.invalidateQueries({ queryKey: ['rideHistory'] })}
+          />
         ) : rides.length === 0 ? (
-          <EmptyCard text="No rides yet." />
+          <EmptyState>No rides yet.</EmptyState>
         ) : (
           rides.map((r) => <RideRow key={r.id} ride={r} />)
         )}
@@ -56,20 +64,19 @@ export default function Activity() {
           Subscription history
         </h3>
         {renewalsLoading ? (
-          <p className="text-center text-sm text-gray-400">Loading…</p>
+          <Loading />
+        ) : renewalsError ? (
+          <ErrorState
+            message="Couldn’t load your subscription history."
+            onRetry={() => qc.invalidateQueries({ queryKey: ['renewalHistory'] })}
+          />
         ) : renewals.length === 0 ? (
-          <EmptyCard text="No renewals submitted yet." />
+          <EmptyState>No renewals submitted yet.</EmptyState>
         ) : (
           renewals.map((r) => <RenewalRow key={r.id} renewal={r} />)
         )}
       </section>
     </div>
-  )
-}
-
-function EmptyCard({ text }: { text: string }) {
-  return (
-    <div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-400">{text}</div>
   )
 }
 

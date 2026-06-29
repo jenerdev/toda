@@ -116,7 +116,10 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   (all with active subscriptions) clustered around the `CommuterHome` `DEFAULT_CENTER` (14.5995, 120.9842); each logs
   in via the normal phone + OTP `1234` flow. Includes a liveness-refresh snippet (drivers go stale after 60s with no
   live heartbeat tab) and `supabase/seed_cleanup.sql` to remove it all via `auth.users` cascade.
-- **Empty/error/loading-state pass** across screens. ✅ **Reconnect banner on realtime drop** —
+- ✅ **Empty/error/loading-state pass** — shared `Spinner`/`Loading`/`EmptyState`/`ErrorState` components
+  (`src/components/States.tsx`); the history/queue/active-ride hooks now expose `error`; Activity, Admin, CommuterHome,
+  and DriverHome show a distinct error card (with retry) instead of a misleading empty state on a failed load.
+- ✅ **Reconnect banner on realtime drop** —
   `useRealtimeStatus`/`ReconnectBanner` show a top "Reconnecting… live updates paused" bar when the Realtime socket
   drops (while channels are active) and refetch all queries on recovery.
 - ✅ **No-drivers "notify me"** — when a booking returns `no_drivers`, the commuter can arm a watch (`NoDriversPanel`

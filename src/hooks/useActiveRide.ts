@@ -12,7 +12,7 @@ const ACTIVE = ['searching', 'accepted', 'enroute', 'no_drivers']
 export function useActiveRide(userId: string | undefined) {
   const qc = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['activeRide', userId],
     enabled: Boolean(userId),
     queryFn: async (): Promise<Ride | null> => {
@@ -43,5 +43,5 @@ export function useActiveRide(userId: string | undefined) {
     }
   }, [userId, qc])
 
-  return { ride: data ?? null, loading: isLoading }
+  return { ride: data ?? null, loading: isLoading, error }
 }

@@ -5,6 +5,7 @@ import { MapPicker, type LatLng } from '../components/MapPicker'
 import { RideStatusPanel } from '../components/RideStatusPanel'
 import { useActiveRide } from '../hooks/useActiveRide'
 import { RenewPanel } from '../components/RenewPanel'
+import { Loading, ErrorState } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { accessState } from '../lib/subscription'
 
@@ -15,7 +16,7 @@ const DEFAULT_CENTER: LatLng = { lat: 14.5995, lng: 120.9842 }
 export default function CommuterHome() {
   const { user, profile } = useAuth()
   const qc = useQueryClient()
-  const { ride, loading } = useActiveRide(user?.id)
+  const { ride, loading, error: rideError } = useActiveRide(user?.id)
 
   const [pickup, setPickup] = useState<LatLng>(DEFAULT_CENTER)
   const [address, setAddress] = useState('')
@@ -144,7 +145,17 @@ export default function CommuterHome() {
 
   // While a ride is active, show its live status instead of the booking UI.
   if (loading) {
-    return <p className="p-6 text-center text-sm text-gray-400">Loading…</p>
+    return <Loading />
+  }
+  if (rideError) {
+    return (
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <ErrorState
+          message="Couldn’t load your ride."
+          onRetry={() => qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })}
+        />
+      </div>
+    )
   }
   if (ride) {
     return (

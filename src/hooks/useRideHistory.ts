@@ -19,7 +19,7 @@ export function useRideHistory(userId: string | undefined, role: Role | undefine
   const column = role === 'driver' ? 'driver_id' : 'client_id'
   const statuses = role === 'driver' ? DRIVER_STATUSES : COMMUTER_STATUSES
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['rideHistory', userId, role],
     enabled: Boolean(userId && role),
     queryFn: async (): Promise<Ride[]> => {
@@ -50,5 +50,5 @@ export function useRideHistory(userId: string | undefined, role: Role | undefine
     }
   }, [userId, role, column, qc])
 
-  return { rides: data ?? [], loading: isLoading }
+  return { rides: data ?? [], loading: isLoading, error }
 }

@@ -11,7 +11,7 @@ import type { Renewal } from '../types/db'
 export function useRenewalHistory(userId: string | undefined) {
   const qc = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['renewalHistory', userId],
     enabled: Boolean(userId),
     queryFn: async (): Promise<Renewal[]> => {
@@ -41,5 +41,5 @@ export function useRenewalHistory(userId: string | undefined) {
     }
   }, [userId, qc])
 
-  return { renewals: data ?? [], loading: isLoading }
+  return { renewals: data ?? [], loading: isLoading, error }
 }
