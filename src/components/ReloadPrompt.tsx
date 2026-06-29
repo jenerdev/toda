@@ -32,8 +32,23 @@ export function ReloadPrompt() {
 
   if (!needRefresh) return null
 
+  function reload() {
+    // Reload as soon as the new service worker takes control. updateServiceWorker(true)
+    // also reloads internally, but we add our own controllerchange listener plus a
+    // timed fallback for flaky activations (notably iOS) where neither fires.
+    let done = false
+    const doReload = () => {
+      if (done) return
+      done = true
+      window.location.reload()
+    }
+    navigator.serviceWorker?.addEventListener('controllerchange', doReload, { once: true })
+    void updateServiceWorker(true)
+    setTimeout(doReload, 3000)
+  }
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-md p-3">
+    <div className="fixed inset-x-0 bottom-0 z-[1100] mx-auto w-full max-w-md p-3">
       <div className="flex items-center gap-3 rounded-xl border border-brand bg-white p-3 shadow-lg">
         <span aria-hidden className="text-lg">
           🔄
@@ -48,7 +63,7 @@ export function ReloadPrompt() {
         </button>
         <button
           type="button"
-          onClick={() => updateServiceWorker(true)}
+          onClick={reload}
           className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-dark"
         >
           Reload
