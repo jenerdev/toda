@@ -30,13 +30,19 @@ export function useRoute(driver: LatLng | null, to: LatLng): RouteResult {
   // Round to ~110 m so we only refetch when the driver meaningfully moves.
   const driverKey = driver ? `${driver.lat.toFixed(3)},${driver.lng.toFixed(3)}` : null
 
-  const { data } = useQuery({
+  const { data } = useQuery<{ positions: LatLng[]; distanceM: number; durationS: number }>({
     queryKey: ['route', `${to.lat},${to.lng}`, driverKey],
     enabled: Boolean(driver),
+    // Once we have a route for this (rounded) position it never changes, so keep
+    // it. But if OSRM failed (demo server is flaky), keep retrying every 15s
+    // until we get one — otherwise a single early failure would stick on the
+    // straight-line fallback until the driver moved ~100m or the page reloaded.
     staleTime: Infinity,
     gcTime: 30 * 60_000,
-    retry: 1,
-    queryFn: async ({ signal }): Promise<{ positions: LatLng[]; distanceM: number; durationS: number }> => {
+    retry: 2,
+    retryDelay: 2_000,
+    refetchInterval: (query) => (query.state.data ? false : 15_000),
+    queryFn: async ({ signal }) => {
       const d = driver!
       const url =
         `https://router.project-osrm.org/route/v1/driving/` +
