@@ -143,6 +143,8 @@ export default function Login() {
       <p className="mt-4 text-center text-sm text-gray-500">
         No account? <Link className="text-brand underline" to="/signup">Create one</Link>
       </p>
+
+      <p className="mt-8 text-center text-[10px] text-gray-300">MotoQueue · build {__BUILD_ID__}</p>
     </div>
   )
 }
