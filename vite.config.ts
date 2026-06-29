@@ -18,7 +18,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' (not autoUpdate): a new build waits and we show a "Reload"
+      // banner (see ReloadPrompt) instead of silently swapping — so it's always
+      // visible which version you're on and updating is one explicit tap.
+      registerType: 'prompt',
       includeAssets: ['favicon.svg'],
       // Pull our Web Push handlers (push / notificationclick) into the generated
       // Workbox service worker so notifications work with the app closed.
