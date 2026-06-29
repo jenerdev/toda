@@ -14,7 +14,7 @@ where you are, and the **next driver in the queue** is dispatched to you.
 4. Decline / no response (30s) → the **next driver** is notified, and so on.
 5. Accept → the commuter sees **"driver on the way"** with a **live map** + **chat**. The fare is **cash, paid to the
    driver outside the app** — the app never handles ride money.
-6. Ride completes → the driver **re-queues at the end**.
+6. Ride completes → **both sides see a completion confirmation**, and the driver **re-queues at the end**.
 
 ### Access (subscription)
 
