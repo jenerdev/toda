@@ -129,6 +129,9 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   manual** — see [`DEPLOYMENT.md`](DEPLOYMENT.md) → "Push notifications" (generate VAPID keys, set
   `VITE_VAPID_PUBLIC_KEY`, deploy the function + its secrets, create the webhook). ⚠️ **iOS only works for an
   installed PWA** (Add to Home Screen, iOS 16.4+) — not a Safari tab.
+  ✅ **Verified working end-to-end on the deployed env** (driver receives the offer push with the app closed).
+  🔒 **Pre-launch:** the VAPID keypair + `WEBHOOK_SECRET` in use were generated in a chat session — **rotate them**
+  (regenerate VAPID keys, new `WEBHOOK_SECRET`) and update the function secrets / Vercel env before real launch.
 - Optional: schedule the **`pg_cron`** sweeps — `expire_stale_offers()` + `reap_stale_drivers()` (snippets are in the
   `0003`/`0007` migration comments). Not required: the offer countdown + the driver heartbeat cover the live case;
   the sweeps only tidy displayed state (e.g. a closed-tab driver lingering in the queue list).
