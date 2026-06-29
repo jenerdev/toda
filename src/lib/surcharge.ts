@@ -2,8 +2,9 @@
 // amounts (₱) on a far offer; the commuter approves before the ride proceeds.
 // The money is CASH to the driver — the app only relays the request.
 
-/** Selectable surcharge amounts (₱). Must stay within the server cap (0–50, step 5). */
-export const SURCHARGE_OPTIONS = [0, 5, 10, 15, 20] as const
+/** Surcharge stepper bounds (₱). Must match the server cap (0–50, step 5). */
+export const SURCHARGE_STEP = 5
+export const SURCHARGE_MAX = 50
 
 /** Only offer the surcharge when the pickup is at least this far from the driver. */
 export const SURCHARGE_MIN_DISTANCE_M = 1000
