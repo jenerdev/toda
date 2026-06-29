@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
 import { SubscriptionBadge } from './SubscriptionBadge'
 import { InstallBanner } from './InstallBanner'
-import { RideCompleteToast } from './RideCompleteToast'
+import { RideOutcomeToast } from './RideOutcomeToast'
 
 /** App chrome: top bar with name, subscription status, admin link, sign-out. */
 export function Layout({ children }: { children: ReactNode }) {
@@ -50,7 +50,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
       <InstallBanner />
       <main className="flex flex-1 flex-col">{children}</main>
-      <RideCompleteToast userId={user?.id} role={profile?.role} />
+      <RideOutcomeToast userId={user?.id} role={profile?.role} />
       <footer className="px-4 py-2 text-center text-[10px] text-gray-300">
         MotoQueue · build {__BUILD_ID__}
       </footer>

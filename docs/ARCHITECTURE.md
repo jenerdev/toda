@@ -193,11 +193,13 @@ queries** so the UI catches up on anything missed. The data hooks expose their q
 shared `ErrorState` (with retry) via the `States.tsx` primitives, so a failed load shows an error card rather than a
 misleading empty state.
 
-**Ride-complete confirmation.** A completed ride leaves the active-ride query (it's a terminal status), so on its own
-the UI would just snap back with no acknowledgement. `useJustCompletedRide` instead listens for the `rides` UPDATE
-that flips the row to `completed` and triggers `RideCompleteToast`, a dismissible modal shown to **both** parties — the
-one who tapped complete *and* the counterpart, since the updated row matches both the `client_id` and `driver_id`
-filters. It's mounted once in `Layout` and is **event-driven** (fires only on a live transition, never replays on
+**Ride-outcome confirmation.** A finished ride leaves the active-ride query (terminal status), so on its own the UI
+would just snap back with no acknowledgement. `useRideOutcome` instead listens for the `rides` UPDATE that flips the
+row to `completed` **or** `cancelled` and triggers `RideOutcomeToast`, a dismissible modal shown to **both** parties —
+the one who acted *and* the counterpart, since the updated row matches both the `client_id` and `driver_id` filters
+(a driver only ever sees an event for a ride they were assigned to). Completed reads celebratory; cancelled is neutral
+("back in the queue" for the driver, "book another ride" for the commuter). It's mounted once in `Layout` and is
+**event-driven** (fires only on a live transition, never replays on
 remount).
 
 ## PWA & notifications

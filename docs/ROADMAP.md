@@ -129,10 +129,10 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 - ✅ **Reconnect banner on realtime drop** —
   `useRealtimeStatus`/`ReconnectBanner` show a top "Reconnecting… live updates paused" bar when the Realtime socket
   drops (while channels are active) and refetch all queries on recovery.
-- ✅ **Ride completion confirmation** — `useJustCompletedRide` + `RideCompleteToast`: a dismissible
-  **"Ride/Trip completed!"** modal shown to **both** the commuter and the driver when a ride completes (driven by the
-  realtime `rides → completed` transition, so whoever taps complete *and* the counterpart both get it), with a
-  cash-fare reminder. Mounted in `Layout` so it appears over any screen.
+- ✅ **Ride-outcome confirmation** — `useRideOutcome` + `RideOutcomeToast`: a dismissible modal shown to **both** the
+  commuter and the driver when a ride ends — **completed** ("Ride/Trip completed!", cash-fare reminder) **or
+  cancelled** ("back in the queue" for the driver, "book another ride" for the commuter). Driven by the realtime
+  `rides → completed/cancelled` transition, so whoever acted *and* the counterpart both get it. Mounted in `Layout`.
 - ✅ **No-drivers "notify me"** — when a booking returns `no_drivers`, the commuter can arm a watch (`NoDriversPanel`
   + `useAvailableDrivers`, live on `driver_states`). When a driver comes online it shows an in-app "driver available
   → Book now" CTA (one-tap re-book reusing the pinned location) and fires a system notification if permission was
