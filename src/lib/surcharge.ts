@@ -2,7 +2,9 @@
 // amounts (₱) on a far offer; the commuter approves before the ride proceeds.
 // The money is CASH to the driver — the app only relays the request.
 
-/** Surcharge stepper bounds (₱). Must match the server cap (0–50, step 5). */
+/** Preset surcharge chips (₱); 0 = "None". The "+5" chip bumps the current
+ *  value by SURCHARGE_STEP up to SURCHARGE_MAX. Bounds match the server (0–50, step 5). */
+export const SURCHARGE_PRESETS = [0, 5, 10, 15] as const
 export const SURCHARGE_STEP = 5
 export const SURCHARGE_MAX = 50
 

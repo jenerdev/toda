@@ -169,7 +169,7 @@ fully-closed app would need Web Push — see ROADMAP.)
 │   📍 ~1.4 km from you·5min │  ← estimated range to the pickup
 │   [ MAP: 🏍️ you ⟶ 📍 pickup]│  ← both points + red route line
 │   Far pickup — surcharge?  │  ← only when ≥1 km
-│      [−]  +₱10  [+]        │  ← stepper, +₱5 steps, max ₱50
+│ [None][₱5][₱10][₱15][+5]   │  ← preset chips; "+5" bumps current (max ₱50)
 │   ⏱ 0:23                  │  ← countdown
 │ [Decline][Request +₱10 &…] │
 └──────────────────────────┘
@@ -179,8 +179,9 @@ fully-closed app would need Web Push — see ROADMAP.)
   current location and the pickup** with the **route line** between them, plus an **estimated distance/ETA** ("~1.4 km
   from you · ~5 min", from a one-shot GPS fix + `useRoute`), so the driver can judge the pickup's distance before
   accepting. Falls back gracefully (pickup-only) if location permission isn't granted.
-- **Distance surcharge (≥1 km only):** a `[−] +₱X [+]` stepper (steps of ₱5, max ₱50) appears with the note *"Far
-  pickup — you can request a distance surcharge, paid to you in cash. MotoQueue doesn't set fares."* If the driver picks an amount, the
+- **Distance surcharge (≥1 km only):** preset chips **[None] [₱5] [₱10] [₱15]** plus a **[+5]** chip that bumps the
+  current amount by ₱5 (capped at ₱50), with the note *"Far pickup — you can request a distance surcharge, paid to you
+  in cash. MotoQueue doesn't set fares."* If the driver picks an amount, the
   Accept button reads **"Request +₱X & accept"** and the card switches to a **"Waiting for rider…"** state until the
   commuter decides. ₱0 = today's instant accept.
 - On accept → switches to an "On trip" view with the commuter's contact + **[ Mark complete ]**.

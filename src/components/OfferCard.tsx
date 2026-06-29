@@ -6,6 +6,7 @@ import { useCurrentPosition } from '../hooks/useCurrentPosition'
 import { useRoute } from '../hooks/useRoute'
 import { formatDistance, formatEta } from '../lib/geo'
 import {
+  SURCHARGE_PRESETS,
   SURCHARGE_STEP,
   SURCHARGE_MAX,
   SURCHARGE_MIN_DISTANCE_M,
@@ -103,28 +104,31 @@ export function OfferCard({
 
       {canSurcharge && (
         <div className="mb-3 rounded-lg bg-amber-50 p-2">
-          <p className="mb-2 text-[11px] leading-snug text-amber-700">{SURCHARGE_DRIVER_NOTE}</p>
-          <div className="flex items-center justify-center gap-4">
+          <p className="mb-1.5 text-[11px] leading-snug text-amber-700">{SURCHARGE_DRIVER_NOTE}</p>
+          <div className="flex gap-1">
+            {SURCHARGE_PRESETS.map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                onClick={() => setSurcharge(amt)}
+                className={
+                  'flex-1 rounded-md py-1.5 text-sm font-semibold transition ' +
+                  (surcharge === amt
+                    ? 'bg-brand text-white'
+                    : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50')
+                }
+              >
+                {amt === 0 ? 'None' : `₱${amt}`}
+              </button>
+            ))}
             <button
               type="button"
-              aria-label="Decrease surcharge"
-              onClick={() => setSurcharge((s) => Math.max(0, s - SURCHARGE_STEP))}
-              disabled={surcharge <= 0}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300 bg-white text-xl font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-40"
-            >
-              −
-            </button>
-            <span className="min-w-[4rem] text-center text-lg font-bold text-amber-900">
-              {surcharge === 0 ? 'None' : `+₱${surcharge}`}
-            </span>
-            <button
-              type="button"
-              aria-label="Increase surcharge"
+              aria-label="Add 5 to the surcharge"
               onClick={() => setSurcharge((s) => Math.min(SURCHARGE_MAX, s + SURCHARGE_STEP))}
               disabled={surcharge >= SURCHARGE_MAX}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-300 bg-white text-xl font-bold text-amber-800 transition hover:bg-amber-100 disabled:opacity-40"
+              className="flex-1 rounded-md border border-gray-300 bg-white py-1.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-40"
             >
-              +
+              +5
             </button>
           </div>
         </div>
