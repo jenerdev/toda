@@ -36,7 +36,8 @@
                                          (ride-offer push, even app-closed)
 
    Frontend deployed on Vercel (static PWA); backend is hosted Supabase.
-   External: OpenStreetMap tiles (called from the client); a Web Push service
+   External (all client-side): OpenStreetMap tiles; the OSRM demo server for the
+   live route line (keyless, straight-line fallback); a Web Push service
    (delivers offer pushes via notify-driver). No geocoding service.
 ```
 

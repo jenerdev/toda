@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { LatLng } from './MapPicker'
+
+const BRAND = '#0d9488'
 
 const driverIcon = L.divIcon({
   className: '',
@@ -42,14 +44,22 @@ function FitBounds({ points }: { points: LatLng[] }) {
 export function RouteMap({
   driver,
   pickup,
+  route,
+  routeLabel,
   waitingHint,
 }: {
   driver: LatLng | null
   pickup: LatLng
+  /** Road-following polyline (driver → pickup). When absent, a straight dashed
+   *  line is drawn between the two points as a fallback. */
+  route?: LatLng[] | null
+  /** Caption shown under the map once the driver is known (e.g. distance/ETA). */
+  routeLabel?: string
   /** Shown under the map while the driver position is still unknown. */
   waitingHint?: string
 }) {
-  const points = driver ? [driver, pickup] : [pickup]
+  // Fit to the whole road route when we have one; else to the two endpoints.
+  const fitPoints = route && route.length ? route : driver ? [driver, pickup] : [pickup]
 
   return (
     <div className="overflow-hidden rounded-xl border">
@@ -63,12 +73,33 @@ export function RouteMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {route && route.length > 1 ? (
+          <Polyline positions={route.map((p) => [p.lat, p.lng])} color={BRAND} weight={4} opacity={0.85} />
+        ) : (
+          driver && (
+            <Polyline
+              positions={[
+                [driver.lat, driver.lng],
+                [pickup.lat, pickup.lng],
+              ]}
+              color={BRAND}
+              weight={3}
+              opacity={0.6}
+              dashArray="6"
+            />
+          )
+        )}
         <Marker position={[pickup.lat, pickup.lng]} icon={pickupIcon} />
         {driver && <Marker position={[driver.lat, driver.lng]} icon={driverIcon} />}
-        <FitBounds points={points} />
+        <FitBounds points={fitPoints} />
       </MapContainer>
-      {!driver && waitingHint && (
-        <p className="bg-gray-50 px-3 py-2 text-center text-xs text-gray-400">{waitingHint}</p>
+      {driver && routeLabel ? (
+        <p className="bg-gray-50 px-3 py-2 text-center text-xs text-gray-500">{routeLabel}</p>
+      ) : (
+        !driver &&
+        waitingHint && (
+          <p className="bg-gray-50 px-3 py-2 text-center text-xs text-gray-400">{waitingHint}</p>
+        )
       )}
     </div>
   )

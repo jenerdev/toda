@@ -114,7 +114,8 @@ in-place **Renew** flow (shown when access lapses).
 │  [ Ride complete ]        │
 └──────────────────────────┘
 ```
-States: `searching` (spinner + cancel) · `accepted/enroute` (driver card + **live tracking map** + **chat** +
+States: `searching` (spinner + cancel) · `accepted/enroute` (driver card + **live tracking map** — drawing the
+**road route** from the driver to you with a *"Driver ~Nm away · ~N min"* label — + **chat** +
 **Ride complete** + a **Cancel ride** button) · `completed` (a **"Ride completed!"** confirmation modal appears, then
 returns to booking; fare paid in cash to the driver) · `cancelled` (a neutral **"Ride cancelled"** confirmation, then
 back to booking) · `no_drivers` (see below). The accepted view also shows
@@ -285,8 +286,9 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   available! → Book now" (one-tap re-book) + a system notification (`useAvailableDrivers`).
 - `TripPanel` — driver's accepted-ride view; pickup address + `RouteMap` (own live location + pickup) + `Chat` +
   location-sharing status (incl. a coarse-GPS / Precise-Location warning); complete + cancel-trip actions.
-- `RouteMap` — shared live map: a 🏍️ driver marker (when known) + a 📍 pickup marker, auto-fit to both. Used by both
-  the commuter (`LiveTrackMap`) and the driver (`TripPanel`).
+- `RouteMap` — shared live map: a 🏍️ driver marker (when known) + a 📍 pickup marker, auto-fit to both, plus an
+  optional **road-route polyline** + distance/ETA caption. Used by both the commuter (`LiveTrackMap` — draws the route
+  via `useRoute`/OSRM, straight-line fallback) and the driver (`TripPanel`).
 - `LiveTrackMap` — commuter's live view of the driver moving toward the pickup (wraps `RouteMap`, driver position read
   from the DB).
 - `PickupMap` — read-only map of the commuter's pinned location (shown in the offer).
