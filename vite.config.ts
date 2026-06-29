@@ -2,8 +2,19 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Build id shown in-app so you can confirm which deploy you're on. On Vercel
+// this is the git commit SHA; locally it falls back to "dev". Read via globalThis
+// so we don't need @types/node just for process.env.
+const env =
+  (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
+    ?.env ?? {}
+const buildId = (env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7) || 'dev'
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  define: {
+    __BUILD_ID__: JSON.stringify(buildId),
+  },
   plugins: [
     react(),
     VitePWA({

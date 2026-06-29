@@ -49,6 +49,9 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
       <InstallBanner />
       <main className="flex flex-1 flex-col">{children}</main>
+      <footer className="px-4 py-2 text-center text-[10px] text-gray-300">
+        MotoQueue · build {__BUILD_ID__}
+      </footer>
     </div>
   )
 }
