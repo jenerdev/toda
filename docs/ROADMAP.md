@@ -135,6 +135,12 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   ("~450 m from you · ~2 min") so the driver can judge the pickup before accepting. Throttled (~per 100 m of driver
   movement) and **falls back to a straight line + great-circle distance** when the demo endpoint is unavailable.
   ⚠️ OSRM demo is best-effort; a keyed routing provider would be the upgrade for production.
+- ✅ **Distance pickup surcharge (`0013`)** — on a far offer (**≥1 km**) the driver can request +₱0/5/10/15/20; the
+  commuter must **approve** before the ride proceeds, else it's offered to the next driver. Handshake via
+  `respond_offer(…, p_surcharge)` → offer `awaiting_approval` + `rides.pending_*` → `approve_surcharge`/`reject_surcharge`
+  (`OfferCard` selector + `SurchargeApprovalPanel`). Framed as a **relay-only** surcharge — money stays **cash**, the
+  app only records the agreed amount (`rides.surcharge`). ⚠️ Fare-relay/TODA caveat in [`LEGAL.md`](LEGAL.md); the
+  ≥1 km gate is client-side (server caps the amount; commuter approval is the guard).
 - ✅ **Ride-outcome confirmation** — `useRideOutcome` + `RideOutcomeToast`: a dismissible modal shown to **both** the
   commuter and the driver when a ride ends — **completed** ("Ride/Trip completed!", cash-fare reminder) **or
   cancelled** ("back in the queue" for the driver, "book another ride" for the commuter). Driven by the realtime
@@ -253,6 +259,7 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0010_renewals_admin.sql` | `profiles.is_admin` + `is_admin()`; `renewals` table (unique GCash ref) + RLS; `submit_renewal`/`review_renewal`; private `renewal-screenshots` Storage bucket |
 | `0011_driver_verification.sql` | `driver_applications` table + RLS; `submit_driver_application`/`review_driver`; `driver_go_online` gated on `approved`; private `driver-docs` Storage bucket |
 | `0012_push_subscriptions.sql` | `push_subscriptions` table + RLS (user manages own); read by the `notify-driver` Edge Function (service role) to send driver ride-offer Web Push on `ride_offers` insert |
+| `0013_pickup_surcharge.sql` | `rides.surcharge`/`pending_surcharge`/`pending_driver_id` + `ride_offers` `awaiting_approval` status; `respond_offer` takes a surcharge; new `approve_surcharge`/`reject_surcharge`; dispatch skips drivers holding a pending/awaiting offer |
 
 ---
 

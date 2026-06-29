@@ -83,6 +83,11 @@ export function TripPanel({
         <p className="mt-3 text-sm font-medium text-gray-800">
           Pickup: {ride.pickup_address ?? 'Pinned location'}
         </p>
+        {ride.surcharge > 0 && (
+          <p className="mt-1 text-sm font-medium text-amber-700">
+            Agreed extra fare: +₱{ride.surcharge} (collect in cash)
+          </p>
+        )}
         {loc.text && (
           <p className={'mt-2 text-xs ' + (loc.warn ? 'text-red-600' : 'text-gray-400')}>
             {loc.text}

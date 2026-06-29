@@ -13,7 +13,7 @@ export type RideStatus =
   | 'cancelled'
   | 'no_drivers'
 
-export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'expired'
+export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'expired' | 'awaiting_approval'
 
 export type RenewalStatus = 'pending' | 'approved' | 'rejected'
 
@@ -51,6 +51,11 @@ export interface Ride {
   created_at: string
   accepted_at: string | null
   completed_at: string | null
+  // Pickup surcharge (₱): `surcharge` is the agreed amount once accepted;
+  // pending_* hold a driver's request while it awaits the commuter's approval.
+  surcharge: number
+  pending_surcharge: number | null
+  pending_driver_id: string | null
 }
 
 export interface RideOffer {

@@ -117,6 +117,28 @@ export default function CommuterHome() {
     await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })
   }
 
+  // A driver requested a distance surcharge before accepting.
+  async function approveSurcharge() {
+    if (!ride) return
+    setError(null)
+    setBusy(true)
+    const { error } = await supabase.rpc('approve_surcharge', { p_ride_id: ride.id })
+    setBusy(false)
+    if (error) {
+      setError(error.message)
+      return
+    }
+    await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })
+  }
+
+  async function rejectSurcharge() {
+    if (!ride) return
+    setBusy(true)
+    await supabase.rpc('reject_surcharge', { p_ride_id: ride.id })
+    setBusy(false)
+    await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })
+  }
+
   async function cancelAccepted() {
     if (!ride) return
     if (!window.confirm('Cancel this ride? Your driver will be released.')) return
@@ -170,6 +192,9 @@ export default function CommuterHome() {
           completing={busy}
           onRebook={rebook}
           rebooking={busy}
+          onApproveSurcharge={approveSurcharge}
+          onRejectSurcharge={rejectSurcharge}
+          surchargeBusy={busy}
         />
         {error && <p className="text-center text-sm text-red-600">{error}</p>}
       </div>

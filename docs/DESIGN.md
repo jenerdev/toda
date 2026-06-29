@@ -166,19 +166,41 @@ fully-closed app would need Web Push — see ROADMAP.)
 ┌──────────────────────────┐
 │   🔔 New ride request!    │
 │   Pickup: 12 Acacia St    │  ← address shown up-front
-│   📍 ~450 m from you·~2min │  ← estimated range to the pickup
+│   📍 ~1.4 km from you·5min │  ← estimated range to the pickup
 │   [ MAP: 🏍️ you ⟶ 📍 pickup]│  ← both points + red route line
+│   Far pickup — surcharge?  │  ← only when ≥1 km
+│  [None][+5][+10][+15][+20] │  ← distance surcharge chips
 │   ⏱ 0:23                  │  ← countdown
-│  [ Decline ] [ Accept ]   │
+│ [Decline][Request +₱10 &…] │
 └──────────────────────────┘
 ```
 - The driver sees the **pickup address + a map before accepting** (the old "hidden until accept" gate was
-  removed when per-ride credits went away — no commitment cost to seeing it). The map now shows **both the driver's
-  current location and the pickup** with the **route line** between them, plus an **estimated distance/ETA** ("~450 m
-  from you · ~2 min", from a one-shot GPS fix + `useRoute`), so the driver can judge the pickup's distance before
+  removed when per-ride credits went away — no commitment cost to seeing it). The map shows **both the driver's
+  current location and the pickup** with the **route line** between them, plus an **estimated distance/ETA** ("~1.4 km
+  from you · ~5 min", from a one-shot GPS fix + `useRoute`), so the driver can judge the pickup's distance before
   accepting. Falls back gracefully (pickup-only) if location permission isn't granted.
+- **Distance surcharge (≥1 km only):** a chip selector (+₱0/5/10/15/20) appears with the note *"Far pickup — you can
+  request a distance surcharge, paid to you in cash. MotoQueue doesn't set fares."* If the driver picks an amount, the
+  Accept button reads **"Request +₱X & accept"** and the card switches to a **"Waiting for rider…"** state until the
+  commuter decides. ₱0 = today's instant accept.
 - On accept → switches to an "On trip" view with the commuter's contact + **[ Mark complete ]**.
 - On decline/timeout → returns to queue; the offer silently moves to the next driver.
+
+### Surcharge approval (commuter) — appears in place of "Finding you a driver…"
+```
+┌──────────────────────────┐
+│  Extra fare requested  ⏱30│
+│         +₱10              │
+│  Your driver requests an  │
+│  extra ₱10 for the        │
+│  distance… paid in cash.  │
+│  [ Decline ] [ Approve ]  │
+└──────────────────────────┘
+```
+- When a driver requests a surcharge, the commuter's `searching` view becomes this amber prompt (`SurchargeApprovalPanel`)
+  with a 30 s countdown. **Approve** → ride proceeds (`accepted`), the agreed amount shows on both sides during the trip
+  ("Agreed extra fare: +₱10, pay in cash") and in the completion confirmation. **Decline / timeout** → the ride is
+  offered to the next driver. Copy stresses the money is **cash to the driver** and the app doesn't set fares.
 
 ### On-trip / complete (driver)
 ```

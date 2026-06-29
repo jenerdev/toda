@@ -85,8 +85,9 @@ Order is **FIFO by `queued_at` ascending**. Mutations:
 > drivers offline for the queue *display*; it's optional (pg_cron) — dispatch is already correct via the 60s filter.
 
 > **Implementation note (Phase 5).** The dispatch logic was built as **Postgres `SECURITY DEFINER`
-> functions (RPC)** — `book_ride`, `respond_offer`, `cancel_ride`, `cancel_accepted_ride`, `get_counterpart`,
-> `expire_stale_offers`, and the internal `_offer_to_next_driver` — rather than Edge Functions. Same trust boundary
+> functions (RPC)** — `book_ride`, `respond_offer`, `approve_surcharge`/`reject_surcharge`, `cancel_ride`,
+> `cancel_accepted_ride`, `get_counterpart`, `expire_stale_offers`, and the internal `_offer_to_next_driver` — rather
+> than Edge Functions. Same trust boundary
 > (`security definer` + `auth.uid()` checks; RLS still blocks direct table writes), but no CLI/Docker to deploy,
 > atomic transactions, and the timeout sweep reuses the same dispatch routine. The flow below is unchanged; in the
 > diagram "RPC (SECURITY DEFINER)" = these functions. *(The app does now have exactly **one** Edge Function,
@@ -140,12 +141,28 @@ sequenceDiagram
   (reusing the pinned pickup) the moment a driver comes online — in-app via the Notifications API; for a closed app
   this is the job of the ride-offer Web Push (below).
 
+### Pickup-surcharge handshake (`0013`)
+On a **far** offer (≥1 km, gated client-side via the offer card's computed distance) the driver may attach an optional
+**distance surcharge** (₱0/5/10/15/20). The handshake adds one intermediate state without a new ride status:
+- Driver accepts with a surcharge → `respond_offer(…, p_surcharge)` puts the offer in **`awaiting_approval`** and stamps
+  `rides.pending_surcharge` + `pending_driver_id` (the ride stays `searching`, **held** to that driver — dispatch skips
+  drivers holding a `pending`/`awaiting_approval` offer, so no one else is offered).
+- The commuter reads the request off **their own `rides` row** (no new RLS) and calls **`approve_surcharge`** (→ ride
+  `accepted`, `surcharge` recorded, driver `on_trip`) or **`reject_surcharge`** (→ offer `declined`, `_offer_to_next_driver`).
+- Timeout is a client 30 s countdown on each side; the money is still **cash** — the app only relays/records the amount.
+
 ## Fares & money
 
 The app **does not touch fares.** The ride fare is paid in **cash, directly to the driver, outside the app** — the app
 never sees the amount. (Historical note: an early MVP charged a 5+5 **credit** fee per ride; per-ride credits and the
 `transactions` ledger were **removed in `0008`** when the subscription model landed.) Revenue is the subscription
 below — never a per-ride charge.
+
+> **One exception to record: the optional pickup surcharge (`0013`).** On a far pickup the driver may request a
+> distance surcharge that the commuter approves; the app **records the agreed amount** (`rides.surcharge`) and relays
+> the request, but the money is **still cash to the driver** — no money moves through the app, so this stays clear of
+> BSP e-money rules. It does, however, make the app a fare-*relay* (not just dispatch), which has a
+> fare-regulation/TODA caveat — see [`LEGAL.md`](LEGAL.md).
 
 ## Subscriptions & access gating ✅ _(built `0008`–`0010` — see [`MONETIZATION.md`](MONETIZATION.md))_
 

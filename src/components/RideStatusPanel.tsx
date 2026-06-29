@@ -2,6 +2,7 @@ import { useCounterpart } from '../hooks/useCounterpart'
 import { LiveTrackMap } from './LiveTrackMap'
 import { Chat } from './Chat'
 import { NoDriversPanel } from './NoDriversPanel'
+import { SurchargeApprovalPanel } from './SurchargeApprovalPanel'
 import type { Ride } from '../types/db'
 
 // One-tap canned replies for the commuter.
@@ -17,6 +18,9 @@ export function RideStatusPanel({
   completing,
   onRebook,
   rebooking,
+  onApproveSurcharge,
+  onRejectSurcharge,
+  surchargeBusy,
 }: {
   ride: Ride
   onCancel: () => void
@@ -26,11 +30,25 @@ export function RideStatusPanel({
   completing: boolean
   onRebook: () => void
   rebooking: boolean
+  onApproveSurcharge: () => void
+  onRejectSurcharge: () => void
+  surchargeBusy: boolean
 }) {
   const matched = ride.status === 'accepted' || ride.status === 'enroute'
   const { data: driver } = useCounterpart(ride.id, matched)
 
   if (ride.status === 'searching') {
+    // A driver requested a distance surcharge — needs the commuter's approval.
+    if (ride.pending_surcharge && ride.pending_surcharge > 0) {
+      return (
+        <SurchargeApprovalPanel
+          amount={ride.pending_surcharge}
+          onApprove={onApproveSurcharge}
+          onReject={onRejectSurcharge}
+          busy={surchargeBusy}
+        />
+      )
+    }
     return (
       <div className="rounded-xl border bg-white p-6 text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent" />
@@ -72,6 +90,11 @@ export function RideStatusPanel({
         <p className="mt-3 text-sm text-gray-500">
           Pickup: {ride.pickup_address ?? 'Pinned location'}
         </p>
+        {ride.surcharge > 0 && (
+          <p className="mt-1 text-sm font-medium text-amber-700">
+            Agreed extra fare: +₱{ride.surcharge} (pay in cash)
+          </p>
+        )}
       </div>
 
       <LiveTrackMap

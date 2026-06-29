@@ -64,13 +64,14 @@ export default function DriverHome() {
     }
   }
 
-  async function respond(action: 'accept' | 'decline', auto = false) {
+  async function respond(action: 'accept' | 'decline', auto = false, surcharge = 0) {
     if (!offer) return
     // On auto-timeout we don't want to flip the button spinner / show errors.
     if (!auto) setOfferBusy(true)
     const { error } = await supabase.rpc('respond_offer', {
       p_offer_id: offer.offer.id,
       p_action: action,
+      p_surcharge: surcharge,
     })
     if (!auto) setOfferBusy(false)
     if (error && !auto) setError(error.message)
@@ -127,7 +128,7 @@ export default function DriverHome() {
         <OfferCard
           offer={offer}
           busy={offerBusy}
-          onAccept={() => respond('accept')}
+          onAccept={(surcharge) => respond('accept', false, surcharge)}
           onDecline={(auto) => respond('decline', auto)}
         />
       )}
