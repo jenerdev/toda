@@ -284,11 +284,11 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   Ride-complete + Cancel-ride actions. The no-drivers state renders `NoDriversPanel`.
 - `NoDriversPanel` — no-drivers screen: Try again **+** "Notify me when a driver's available" watch → "A driver is
   available! → Book now" (one-tap re-book) + a system notification (`useAvailableDrivers`).
-- `TripPanel` — driver's accepted-ride view; pickup address + `RouteMap` (own live location + pickup) + `Chat` +
+- `TripPanel` — driver's accepted-ride view; pickup address + `RouteMap` (own live location + pickup + road route) + `Chat` +
   location-sharing status (incl. a coarse-GPS / Precise-Location warning); complete + cancel-trip actions.
-- `RouteMap` — shared live map: a 🏍️ driver marker (when known) + a 📍 pickup marker, auto-fit to both, plus an
-  optional **road-route polyline** + distance/ETA caption. Used by both the commuter (`LiveTrackMap` — draws the route
-  via `useRoute`/OSRM, straight-line fallback) and the driver (`TripPanel`).
+- `RouteMap` — shared live map: a 🏍️ driver marker (when known) + a 📍 pickup marker, auto-fit to both, plus a
+  **road-route polyline** + distance/ETA caption. Used by both the commuter (`LiveTrackMap`) and the driver
+  (`TripPanel`) — each draws the route via `useRoute`/OSRM with a straight-line fallback.
 - `LiveTrackMap` — commuter's live view of the driver moving toward the pickup (wraps `RouteMap`, driver position read
   from the DB).
 - `PickupMap` — read-only map of the commuter's pinned location (shown in the offer).

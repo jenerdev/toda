@@ -1,6 +1,8 @@
 import { useCounterpart } from '../hooks/useCounterpart'
 import { Chat } from './Chat'
 import { RouteMap } from './RouteMap'
+import { useRoute } from '../hooks/useRoute'
+import { formatDistance, formatEta } from '../lib/geo'
 import type { LocPublishStatus } from '../hooks/useDriverLocationPublisher'
 import type { Ride } from '../types/db'
 
@@ -57,6 +59,14 @@ export function TripPanel({
   // always iOS "Precise Location" turned off for this site.
   const coarse = locationStatus === 'publishing' && locationAccuracy != null && locationAccuracy > 100
 
+  // Road route from the driver to the pickup (same OSRM source as the commuter side).
+  const pickup = { lat: ride.pickup_lat, lng: ride.pickup_lng }
+  const route = useRoute(driverCoords, pickup)
+  const routeLabel = driverCoords
+    ? `Pickup ~${formatDistance(route.distanceM)} away` +
+      (route.durationS ? ` · ${formatEta(route.durationS)}` : '')
+    : undefined
+
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-xl border-2 border-brand bg-white p-4">
@@ -95,7 +105,9 @@ export function TripPanel({
 
       <RouteMap
         driver={driverCoords}
-        pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
+        pickup={pickup}
+        route={route.positions}
+        routeLabel={routeLabel}
         waitingHint="Getting your location…"
       />
 
