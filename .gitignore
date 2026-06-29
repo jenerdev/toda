@@ -1,0 +1,30 @@
+# dependencies
+node_modules
+.pnp
+.pnp.js
+
+# build
+dist
+dist-ssr
+*.local
+
+# typescript / vite build artifacts (source is vite.config.ts)
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# env
+.env
+.env.local
+.env.*.local
+
+# editor / os
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.log
+
+# supabase local
+supabase/.branches
+supabase/.temp

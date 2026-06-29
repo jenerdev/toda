@@ -1,0 +1,35 @@
+- add notifications
+
+# Design/Architecture
+- final layout and UI design
+- data store age? expiration.
+- session expire
+- Terms and Conditions upon signup
+
+# admin
+- list of drivers - show count of online/offline -  can filter online/offline, 
+- list of commuters
+
+# customer support
+- email and number
+
+# loop hole
+- driver can use only 1 account for all of them
+- add rules on Terms and conditions. for violations and banned. suspension
+- fix loop hole check if driver is moving and check if commuter and driver location overlapped on a certain thresehold.
+-   if driver did not move the complete the booking. it is suspisious.
+-   mark only complete if driver and commuter make them both complete.
+-   if not auto complete if location of both merged/overlapped
+
+
+┌─────────────┬────────────┬──────────┬──────────┐
+│    Phone    │    Name    │   Role   │  Login   │
+├─────────────┼────────────┼──────────┼──────────┤
+│ 09170000001 │ Mang Tonyo │ driver   │ OTP 1234 │
+├─────────────┼────────────┼──────────┼──────────┤
+│ 09170000002 │ Aling Rosa │ driver   │ OTP 1234 │
+├─────────────┼────────────┼──────────┼──────────┤
+│ 09170000003 │ Kuya Boy   │ driver   │ OTP 1234 │
+├─────────────┼────────────┼──────────┼──────────┤
+│ 09170000009 │ Maria      │ commuter │ OTP 1234 │
+└─────────────┴────────────┴──────────┴──────────┘
