@@ -5,11 +5,30 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
  * waiting (registerType: 'prompt'). Tapping Reload activates the new SW and
  * refreshes — so the latest deploy is one visible, explicit tap, never a guess.
  */
+// How often to actively check the server for a new service worker.
+const UPDATE_CHECK_MS = 60_000
+
 export function ReloadPrompt() {
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
-  } = useRegisterSW()
+  } = useRegisterSW({
+    // The default only checks for a new SW once at registration — an installed
+    // PWA reopened from the background often never re-checks, so the update
+    // banner never shows. Poll periodically and whenever the app regains focus
+    // so a new deploy surfaces on its own.
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return
+      const check = () => {
+        if (navigator.onLine) registration.update()
+      }
+      setInterval(check, UPDATE_CHECK_MS)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check()
+      })
+      window.addEventListener('online', check)
+    },
+  })
 
   if (!needRefresh) return null
 
