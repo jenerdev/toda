@@ -177,6 +177,7 @@ BSP e-money regulation.
 | Driver | `ride_offers` for me | Show Accept/Decline card |
 | Driver | `rides` where `driver_id = me` | Show trip panel; toggle queue availability |
 | Commuter | `rides` where `client_id = me` | Update status UI (searching → accepted → completed / no_drivers) |
+| Both | `rides` (own row) UPDATE → `completed` | Show the ride-complete confirmation modal (see below) |
 | Commuter (active ride) | `driver_states` (driver's location) | Move the driver marker on the live map |
 | Both (active ride) | `messages` for the ride | Append new chat messages |
 | Anyone on queue screen | `driver_states` changes | Update live online count / position |
@@ -185,6 +186,20 @@ BSP e-money regulation.
 | Any signed-in user | `renewals` for me | Flip the renewal status (pending → approved/rejected) in place |
 | Admin | `renewals` (all) | Refresh the pending-review queue as submissions arrive |
 
+**Connection resilience.** Because the live experience depends on the socket, `useRealtimeStatus` polls the Realtime
+connection and `ReconnectBanner` shows a "Reconnecting… live updates paused" bar whenever the socket drops while
+channels are active — so a stalled screen never silently masquerades as current data. On reconnect it **refetches all
+queries** so the UI catches up on anything missed. The data hooks expose their query `error` and the screens render a
+shared `ErrorState` (with retry) via the `States.tsx` primitives, so a failed load shows an error card rather than a
+misleading empty state.
+
+**Ride-complete confirmation.** A completed ride leaves the active-ride query (it's a terminal status), so on its own
+the UI would just snap back with no acknowledgement. `useJustCompletedRide` instead listens for the `rides` UPDATE
+that flips the row to `completed` and triggers `RideCompleteToast`, a dismissible modal shown to **both** parties — the
+one who tapped complete *and* the counterpart, since the updated row matches both the `client_id` and `driver_id`
+filters. It's mounted once in `Layout` and is **event-driven** (fires only on a live transition, never replays on
+remount).
+
 ## PWA & notifications
 
 The frontend is an installable PWA (built with `vite-plugin-pwa`) deployed as a static bundle on Vercel.
@@ -192,8 +207,12 @@ The frontend is an installable PWA (built with `vite-plugin-pwa`) deployed as a 
 - **Install & update.** `usePwaInstall` / `InstallBanner` capture the browser's install prompt (with an iOS
   Add-to-Home-Screen fallback). The service worker uses the **`prompt`** update strategy: a new build surfaces a
   "Reload" banner (`ReloadPrompt`, via `useRegisterSW`) instead of silently swapping, so it's explicit which version
-  is live. A small **build-id footer** (`__BUILD_ID__`, injected from the Vercel commit SHA via Vite `define`) makes
-  the running version visible at a glance.
+  is live. To make sure that banner actually appears, the registration **actively polls** for a new SW (every 60s, on
+  tab-visibility regain, and on regaining network) rather than only checking once at startup; the Reload button then
+  reloads on the SW `controllerchange` with a 3s timed fallback, which is iOS-safe (its internal reload is flaky in
+  installed PWAs). A small **build-id footer** (`__BUILD_ID__`, injected from the Vercel commit SHA via Vite `define`)
+  makes the running version visible at a glance — including on the login page. All app-chrome overlays (reconnect /
+  reload banners, the completion modal) are layered **above** Leaflet's z-index so they're never hidden behind a map.
 - **Ride-offer Web Push (closed-app / locked-phone).** Drivers opt in (`usePushNotifications` / `RideAlertsToggle`),
   which stores their browser push subscription in the **`push_subscriptions`** table (`0012`; one row per device,
   user-scoped by RLS). When `_offer_to_next_driver` inserts a `ride_offers` row, a Supabase **Database Webhook** (on

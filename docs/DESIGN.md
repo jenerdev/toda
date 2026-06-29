@@ -12,7 +12,9 @@ Mobile-first. Single-thumb reachable. The two roles see different homes after lo
   (never color alone).
 - **Type:** large, legible system font stack. Big tap targets (≥44px). Generous spacing.
 - **Layout:** full-bleed map where relevant, content in bottom sheets/cards (thumb zone), sticky primary button.
-- **Feedback:** every async action shows a loading and a clear success/error state. Realtime updates animate in.
+- **Feedback:** every async action shows a loading state (a consistent brand **spinner**) and a clear success/error
+  state — a failed load shows an **error card with Try again**, never a silent empty list; a completed ride pops a
+  confirmation modal for both parties. Realtime updates animate in.
 - **Accessibility:** AA contrast, labels on icons, focus states; status conveyed by text not just color.
 
 ## Navigation map
@@ -40,11 +42,14 @@ Mobile-first. Single-thumb reachable. The two roles see different homes after lo
 ```
 
 Shared chrome: top bar with the app name + role, a **subscription badge** (shows the expiry date), an **Activity**
-link (all users) + an **Admin** link (admins only), and sign-out. A small **build-id stamp** sits in the footer (so
-you can confirm which deploy you're on). As a PWA it also surfaces a dismissible **"Install MotoQueue"** banner (with
-an iOS "Share → Add to Home Screen" variant) and a **"new version available — Reload"** banner when an updated service
-worker is waiting. Beyond the two role homes there are three more routes: **`/history`** (Activity), **`/admin`**
-(review queue), and the in-place **Renew** flow (shown when access lapses).
+link (all users) + an **Admin** link (admins only), and sign-out. A small **build-id stamp** sits in the footer **and
+on the login page** (so you can confirm which deploy you're on, even before signing in). When a ride completes, **both
+parties** get a dismissible **"Ride/Trip completed!"** confirmation modal (`RideCompleteToast`), shown over whatever
+screen they're on. As a PWA it also surfaces a dismissible **"Install MotoQueue"** banner (with an iOS "Share → Add to
+Home Screen" variant) and a **"new version available — Reload"** banner when an updated service worker is waiting
+(tapping Reload reliably activates the new version and refreshes). All these overlays/modals render **above the map**.
+Beyond the two role homes there are three more routes: **`/history`** (Activity), **`/admin`** (review queue), and the
+in-place **Renew** flow (shown when access lapses).
 
 ## Screen inventory & wireframes
 
@@ -110,8 +115,9 @@ worker is waiting. Beyond the two role homes there are three more routes: **`/hi
 └──────────────────────────┘
 ```
 States: `searching` (spinner + cancel) · `accepted/enroute` (driver card + **live tracking map** + **chat** +
-**Ride complete** + a **Cancel ride** button) · `completed` (returns to booking; fare paid in cash to the driver) ·
-`no_drivers` (see below). The accepted view also shows **quick-reply chips** above the chat input.
+**Ride complete** + a **Cancel ride** button) · `completed` (a **"Ride completed!"** confirmation modal appears, then
+returns to booking; fare paid in cash to the driver) · `no_drivers` (see below). The accepted view also shows
+**quick-reply chips** above the chat input.
 
 The **`no_drivers`** screen (`NoDriversPanel`) offers more than a retry: alongside **Try again**, the commuter can tap
 **"🔔 Notify me when a driver's available"** to arm a watch on the live queue. While watching it shows a pulsing
@@ -180,6 +186,7 @@ fully-closed app would need Web Push — see ROADMAP.)
 │   [     Cancel trip     ]  │  ← cancel_accepted_ride → back to queue
 └──────────────────────────┘
    → completing re-queues you at the back. Fare is paid in cash, outside the app.
+            On completion, both the driver and the rider get a **"Trip/Ride completed!"** confirmation modal.
 ```
 - The trip map (shared `RouteMap`) plots the **driver's own live location (🏍️) alongside the pickup (📍)** and
   auto-fits to both — so the driver sees where they are relative to the rider, not just the destination.
@@ -283,7 +290,14 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   from the DB).
 - `PickupMap` — read-only map of the commuter's pinned location (shown in the offer).
 - `InstallBanner` — dismissible PWA "Install MotoQueue" prompt (native `beforeinstallprompt` + iOS Share-sheet steps).
-- `ReloadPrompt` — "new version available — Reload" banner when an updated service worker is waiting.
+- `ReloadPrompt` — "new version available — Reload" banner when an updated service worker is waiting; the Reload action
+  reliably activates the new version and refreshes.
+- `ReconnectBanner` — top "Reconnecting… live updates paused" banner while the Realtime socket is down (refetches on
+  recovery).
+- `RideCompleteToast` — dismissible **"Ride/Trip completed!"** confirmation shown to **both** parties on completion
+  (`useJustCompletedRide`); mounted app-wide, renders above the map.
+- `Spinner` / `Loading` / `EmptyState` / `ErrorState` (`States.tsx`) — shared state primitives: a consistent brand
+  spinner, a quiet empty card, and a red **error card with a Try again** retry, used across Activity / Admin / the homes.
 - `RideAlertsToggle` — driver Web Push opt-in ("Enable ride alerts") so offers arrive with the app closed/locked
   (`usePushNotifications`).
 - `Chat` — in-ride messaging between the two participants; optional one-tap **`quickReplies`** chips (driver and
@@ -297,6 +311,11 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
 
 ## Empty / error states (don't skip)
 
+- **Consistent primitives:** loading uses a brand **spinner** (`Loading`); a **failed load** shows a red `ErrorState`
+  card **with a Try again** button (refetches) rather than an empty list; a genuinely empty list uses a quiet
+  `EmptyState` card. Applied across Activity, Admin, and the commuter & driver homes.
+- **Ride completed** → both parties see a **"Ride/Trip completed!"** confirmation modal (Done, or tap the backdrop, to
+  dismiss).
 - No drivers online (commuter books) → "No drivers available right now." with **Try again** + a **"Notify me when a
   driver's available"** watch (re-books on one tap when one comes online).
 - Geolocation denied → the commuter stays on the "Pin my current location" step (pinning is required to book); the

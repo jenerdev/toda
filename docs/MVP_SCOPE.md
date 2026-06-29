@@ -31,7 +31,8 @@ deployed** (Vercel; repo [github.com/jenerdev/toda](https://github.com/jenerdev/
 | **Driver verification** | Drivers upload license + motorcycle photos for admin approval; can't go online until approved. ✅ Built (`0011`). |
 | **Activity history** | Per-user `/history`: ride/trip history + subscription-renewal history. ✅ Built. |
 | **Push notifications** | **Driver ride-offer push** via native Web Push (VAPID + a `notify-driver` Edge Function on a `ride_offers` DB webhook) — drivers get offers **even when the app is closed / phone locked**. ✅ Built & verified. Commuter-side **"notify me when a driver's available"** on the no-drivers screen (in-app + system notification while the app is alive), with one-tap re-book. ✅ Built. ⚠️ iOS Web Push needs the **installed PWA** (iOS 16.4+), not a Safari tab. |
-| **PWA** | Installable to home screen (install banner), mobile-first layout, offline shell, and a **"new version available → Reload"** prompt on update. ✅ Built. |
+| **PWA** | Installable to home screen (install banner), mobile-first layout, offline shell, and a **"new version available → Reload"** prompt on update (the app auto-checks for new builds). A build id is shown on the login page + app footer. ✅ Built. |
+| **UX & reliability** | Consistent **loading / empty / error** states across screens (a failed load shows a retry, never a misleading "empty"); a **reconnect banner** when the realtime connection drops (auto-refetches on reconnect); a **ride-completed confirmation** shown to **both** driver and commuter. ✅ Built. |
 
 ## ❌ Out of scope (future phases)
 

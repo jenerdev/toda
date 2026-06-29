@@ -13,11 +13,11 @@ built (`0008`–`0010`): per-ride credits retired, access gated, manual GCash re
 >    banner shipped (`usePwaInstall` + `InstallBanner` in the `Layout` chrome; native `beforeinstallprompt` capture +
 >    iOS Share-sheet fallback; dismissal persisted). Test via a built+previewed bundle (`vite build && vite preview`)
 >    — the SW isn't active under `vite dev`.
-> 3. **▶ NEXT: Deploy** to Vercel (or similar) — see [`DEPLOYMENT.md`](DEPLOYMENT.md). Get the PWA live on a real
->    host so it can be demoed/installed for real.
-> 4. **Pre-launch security (after deploy).** Most items still apply, but the **real SMS OTP** is intentionally
->    **deferred until after the app is deployed** (user's call — they'll do it on the live host). The dummy OTP
->    (`1234`) is fine for the demo/preview; it remains the blocker before any *real-user* launch (see Security below).
+> 3. ✅ **Deployed to Vercel** (repo `jenerdev/toda`; auto-deploys on push to `main`). Web Push ride alerts, the
+>    install + "new version → Reload" prompts, and the build-id stamp are all working on the live host.
+> 4. **▶ NEXT: Pre-launch security.** Now that the app is deployed, the **real SMS OTP** (replacing the dummy `1234`)
+>    is the headline launch blocker; plus the RLS/RPC audit, rate-limiting, and secret hygiene — including
+>    **rotating the VAPID keypair + `WEBHOOK_SECRET`** generated during setup (see Security below).
 >
 > Everything through driver verification + web-push ride alerts is built (migrations `0001`–`0012`). Open items are tracked in **🔲 Remaining**.
 
@@ -112,6 +112,13 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   a dismissible `InstallBanner` in the `Layout` chrome; iOS (no native event) gets manual Share → "Add to Home
   Screen" steps; already-installed/standalone sessions show nothing. Offline shell is the vite-plugin-pwa precache
   (6 entries). Note: the SW only runs in a built bundle (`vite build && vite preview`), not under `vite dev`.
+- ✅ **PWA update reliability** — `registerType: 'prompt'` with a `ReloadPrompt` (`useRegisterSW`) "new version →
+  Reload" banner that **actively polls** for a new service worker (every 60s, on tab-visibility regain, and on
+  regaining network) so it surfaces on its own; the Reload action reloads on the SW `controllerchange` with a 3s
+  timed fallback (works even on iOS, where the library's internal reload can misfire). App-chrome overlays
+  (reconnect/reload banners + the completion modal) are layered **above the Leaflet map** (z-index), and a build-id
+  stamp (`__BUILD_ID__` = Vercel commit SHA) shows in the in-app footer **and on the login page** to confirm the live
+  build.
 - ✅ **Seed data** for a demo subdivision — `supabase/seed.sql` inserts 3 verified + online drivers and 1 commuter
   (all with active subscriptions) clustered around the `CommuterHome` `DEFAULT_CENTER` (14.5995, 120.9842); each logs
   in via the normal phone + OTP `1234` flow. Includes a liveness-refresh snippet (drivers go stale after 60s with no
@@ -122,6 +129,10 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 - ✅ **Reconnect banner on realtime drop** —
   `useRealtimeStatus`/`ReconnectBanner` show a top "Reconnecting… live updates paused" bar when the Realtime socket
   drops (while channels are active) and refetch all queries on recovery.
+- ✅ **Ride completion confirmation** — `useJustCompletedRide` + `RideCompleteToast`: a dismissible
+  **"Ride/Trip completed!"** modal shown to **both** the commuter and the driver when a ride completes (driven by the
+  realtime `rides → completed` transition, so whoever taps complete *and* the counterpart both get it), with a
+  cash-fare reminder. Mounted in `Layout` so it appears over any screen.
 - ✅ **No-drivers "notify me"** — when a booking returns `no_drivers`, the commuter can arm a watch (`NoDriversPanel`
   + `useAvailableDrivers`, live on `driver_states`). When a driver comes online it shows an in-app "driver available
   → Book now" CTA (one-tap re-book reusing the pinned location) and fires a system notification if permission was
