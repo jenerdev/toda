@@ -1,6 +1,6 @@
 import { useCounterpart } from '../hooks/useCounterpart'
 import { Chat } from './Chat'
-import { PickupMap } from './PickupMap'
+import { RouteMap } from './RouteMap'
 import type { LocPublishStatus } from '../hooks/useDriverLocationPublisher'
 import type { Ride } from '../types/db'
 
@@ -37,6 +37,7 @@ export function TripPanel({
   onCancel,
   cancelling,
   locationStatus,
+  driverCoords,
 }: {
   ride: Ride
   onComplete: () => void
@@ -44,6 +45,7 @@ export function TripPanel({
   onCancel: () => void
   cancelling: boolean
   locationStatus: LocPublishStatus
+  driverCoords: { lat: number; lng: number } | null
 }) {
   const { data: rider } = useCounterpart(ride.id, true)
   const loc = LOC_MESSAGE[locationStatus]
@@ -71,7 +73,11 @@ export function TripPanel({
         )}
       </div>
 
-      <PickupMap point={{ lat: ride.pickup_lat, lng: ride.pickup_lng }} />
+      <RouteMap
+        driver={driverCoords}
+        pickup={{ lat: ride.pickup_lat, lng: ride.pickup_lng }}
+        waitingHint="Getting your location…"
+      />
 
       <Chat rideId={ride.id} quickReplies={DRIVER_QUICK_REPLIES} />
 

@@ -34,7 +34,8 @@ export default function DriverHome() {
   const approved = application?.status === 'approved'
 
   // Stream GPS to the rider while on a trip.
-  const locationStatus = useDriverLocationPublisher(Boolean(activeRide))
+  const { status: locationStatus, coords: driverCoords } =
+    useDriverLocationPublisher(Boolean(activeRide))
 
   // Keep the driver "fresh" so dispatch's stale-tab filter doesn't drop them.
   useDriverHeartbeat(isOnline)
@@ -133,6 +134,7 @@ export default function DriverHome() {
           onCancel={cancelTrip}
           cancelling={busy}
           locationStatus={locationStatus}
+          driverCoords={driverCoords}
         />
       )}
 
