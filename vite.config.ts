@@ -20,6 +20,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
+      // Pull our Web Push handlers (push / notificationclick) into the generated
+      // Workbox service worker so notifications work with the app closed.
+      workbox: {
+        importScripts: ['push-sw.js'],
+      },
       manifest: {
         name: 'MotoQueue',
         short_name: 'MotoQueue',

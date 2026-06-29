@@ -92,6 +92,27 @@ Operational / **non-technical** prerequisites before charging real users:
 - **HOA approval + TODA cooperation + LGU awareness** — relationship prerequisites, see `LEGAL.md`.
 - **Real SMS OTP** — the dummy `1234` is a launch blocker (see [`ROADMAP.md`](ROADMAP.md) → Security).
 
+## Push notifications (driver ride alerts)
+
+Drivers can get ride offers as Web Push notifications even when the app is closed / the phone is locked. This needs a
+one-time setup beyond the normal deploy:
+
+1. **Generate a VAPID keypair** (once): `npx web-push generate-vapid-keys`. You get a public + private key.
+2. **Frontend:** set `VITE_VAPID_PUBLIC_KEY` (the *public* key) in `.env.local` and in Vercel → Environment Variables;
+   redeploy. (The public key is safe to ship; the private key never touches the frontend.)
+3. **Apply migration** `0012_push_subscriptions.sql` in the SQL Editor.
+4. **Deploy the Edge Function** `supabase/functions/notify-driver` (Dashboard → Edge Functions, or
+   `supabase functions deploy notify-driver`). Set its **secrets**: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+   `VAPID_SUBJECT` (e.g. `mailto:you@example.com`), and a `WEBHOOK_SECRET` you choose. (`SUPABASE_URL` and
+   `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
+5. **Create a Database Webhook** (Dashboard → Database → Webhooks): on **INSERT** into `public.ride_offers`, POST to
+   the `notify-driver` function URL, adding header `x-webhook-secret: <the WEBHOOK_SECRET>`. The function only pushes
+   for rows where `status = 'pending'`.
+
+> The driver must tap **"Enable ride alerts"** (and, on **iPhone**, first **Add MotoQueue to the Home Screen** — iOS
+> only supports Web Push for an installed PWA on iOS 16.4+, never in a Safari tab). Dead subscriptions (404/410) are
+> auto-pruned by the function.
+
 ## Environments
 
 | Stage | Frontend | Backend |

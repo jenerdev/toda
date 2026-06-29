@@ -122,7 +122,13 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   → Book now" CTA (one-tap re-book reusing the pinned location) and fires a system notification if permission was
   granted. Works while the app is open or backgrounded-but-alive; waking a **fully-closed** app still needs the
   deferred web-push below.
-- Optional: **web-push** so drivers get offers with the tab backgrounded.
+- ✅ **Web-push driver ride alerts** (closed-app / locked-phone) — native VAPID Web Push. `push_subscriptions` table
+  (`0012`) + `usePushNotifications`/`RideAlertsToggle` (driver opts in, subscription saved); custom SW push handlers
+  (`public/push-sw.js`, imported into the generated SW via `workbox.importScripts`); `notify-driver` Edge Function
+  (`supabase/functions/notify-driver`) sends the push on a **Database Webhook** for `ride_offers` INSERT. **Setup is
+  manual** — see [`DEPLOYMENT.md`](DEPLOYMENT.md) → "Push notifications" (generate VAPID keys, set
+  `VITE_VAPID_PUBLIC_KEY`, deploy the function + its secrets, create the webhook). ⚠️ **iOS only works for an
+  installed PWA** (Add to Home Screen, iOS 16.4+) — not a Safari tab.
 - Optional: schedule the **`pg_cron`** sweeps — `expire_stale_offers()` + `reap_stale_drivers()` (snippets are in the
   `0003`/`0007` migration comments). Not required: the offer countdown + the driver heartbeat cover the live case;
   the sweeps only tidy displayed state (e.g. a closed-tab driver lingering in the queue list).

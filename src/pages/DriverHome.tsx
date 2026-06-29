@@ -8,6 +8,7 @@ import { useDriverLocationPublisher } from '../hooks/useDriverLocationPublisher'
 import { useDriverHeartbeat } from '../hooks/useDriverHeartbeat'
 import { useMyDriverApplication } from '../hooks/useMyDriverApplication'
 import { QueueStatus } from '../components/QueueStatus'
+import { RideAlertsToggle } from '../components/RideAlertsToggle'
 import { OfferCard } from '../components/OfferCard'
 import { TripPanel } from '../components/TripPanel'
 import { RenewPanel } from '../components/RenewPanel'
@@ -197,6 +198,9 @@ export default function DriverHome() {
 
         {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
       </div>
+
+      {/* Web Push opt-in — get offers when the app is closed / phone is locked. */}
+      {approved && hasAccess && !activeRide && <RideAlertsToggle userId={user?.id} />}
 
       {/* Live queue summary (anonymized: counts + your position, no per-driver list) */}
       {loading ? (
