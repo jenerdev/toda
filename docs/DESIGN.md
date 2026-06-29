@@ -7,8 +7,9 @@ Mobile-first. Single-thumb reachable. The two roles see different homes after lo
 - **Tone:** clear, fast, "get me a ride." No clutter — one primary action per screen.
 - **Color:** brand **teal (`#0d9488`)** for primary actions ("Find me a driver", "Accept", "Go online"); a brighter
   **emerald green** reserved for celebratory "go" moments — the driver's **"You're next up"** queue state and the
-  commuter's **"A driver is available!"** state (both with a live pulse); red only for "Decline" / "Cancel" /
-  destructive; amber for soft warnings (e.g. coarse GPS); neutral grays for surfaces. Status uses color + a label
+  commuter's **"A driver is available!"** state (both with a live pulse); **red** for "Decline" / "Cancel" /
+  destructive **and for the driver→pickup route line** on the maps; amber for soft warnings (e.g. coarse GPS); neutral
+  grays for surfaces. Status uses color + a label
   (never color alone).
 - **Type:** large, legible system font stack. Big tap targets (≥44px). Generous spacing.
 - **Layout:** full-bleed map where relevant, content in bottom sheets/cards (thumb zone), sticky primary button.
@@ -164,14 +165,18 @@ fully-closed app would need Web Push — see ROADMAP.)
 ```
 ┌──────────────────────────┐
 │   🔔 New ride request!    │
-│   Pickup: 12 Acacia St    │  ← address + pinned map shown up-front
-│   [   MAP of pickup pin ] │
+│   Pickup: 12 Acacia St    │  ← address shown up-front
+│   📍 ~450 m from you·~2min │  ← estimated range to the pickup
+│   [ MAP: 🏍️ you ⟶ 📍 pickup]│  ← both points + red route line
 │   ⏱ 0:23                  │  ← countdown
 │  [ Decline ] [ Accept ]   │
 └──────────────────────────┘
 ```
-- The driver sees the **pickup address + a pinned map before accepting** (the old "hidden until accept" gate was
-  removed when per-ride credits went away — no commitment cost to seeing it).
+- The driver sees the **pickup address + a map before accepting** (the old "hidden until accept" gate was
+  removed when per-ride credits went away — no commitment cost to seeing it). The map now shows **both the driver's
+  current location and the pickup** with the **route line** between them, plus an **estimated distance/ETA** ("~450 m
+  from you · ~2 min", from a one-shot GPS fix + `useRoute`), so the driver can judge the pickup's distance before
+  accepting. Falls back gracefully (pickup-only) if location permission isn't granted.
 - On accept → switches to an "On trip" view with the commuter's contact + **[ Mark complete ]**.
 - On decline/timeout → returns to queue; the offer silently moves to the next driver.
 

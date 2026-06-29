@@ -129,10 +129,12 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 - ✅ **Reconnect banner on realtime drop** —
   `useRealtimeStatus`/`ReconnectBanner` show a top "Reconnecting… live updates paused" bar when the Realtime socket
   drops (while channels are active) and refetch all queries on recovery.
-- ✅ **Live route line** — both the commuter's (`LiveTrackMap`) and the driver's (`TripPanel`) tracking maps draw the
-  **road route** to the pickup with a distance/ETA label (`useRoute` → `RouteMap`, via the keyless OSRM demo server).
-  Throttled (~per 100 m of driver movement) and **falls back to a straight line + great-circle distance** when the
-  demo endpoint is unavailable. ⚠️ OSRM demo is best-effort; a keyed routing provider would be the upgrade for production.
+- ✅ **Live route line** — the commuter's (`LiveTrackMap`), the driver's (`TripPanel`), and the **offer card**
+  (`OfferCard`, with a one-shot GPS fix) maps draw a **red road route** to the pickup with a distance/ETA label
+  (`useRoute` → `RouteMap`, via the keyless OSRM demo server). The offer card also shows an **estimated range**
+  ("~450 m from you · ~2 min") so the driver can judge the pickup before accepting. Throttled (~per 100 m of driver
+  movement) and **falls back to a straight line + great-circle distance** when the demo endpoint is unavailable.
+  ⚠️ OSRM demo is best-effort; a keyed routing provider would be the upgrade for production.
 - ✅ **Ride-outcome confirmation** — `useRideOutcome` + `RideOutcomeToast`: a dismissible modal shown to **both** the
   commuter and the driver when a ride ends — **completed** ("Ride/Trip completed!", cash-fare reminder) **or
   cancelled** ("back in the queue" for the driver, "book another ride" for the commuter). Driven by the realtime

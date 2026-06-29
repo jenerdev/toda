@@ -4,7 +4,7 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { LatLng } from './MapPicker'
 
-const BRAND = '#0d9488'
+const ROUTE_COLOR = '#dc2626' // red — the driver→pickup route line
 
 const driverIcon = L.divIcon({
   className: '',
@@ -74,7 +74,7 @@ export function RouteMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {route && route.length > 1 ? (
-          <Polyline positions={route.map((p) => [p.lat, p.lng])} color={BRAND} weight={4} opacity={0.85} />
+          <Polyline positions={route.map((p) => [p.lat, p.lng])} color={ROUTE_COLOR} weight={4} opacity={0.85} />
         ) : (
           driver && (
             <Polyline
@@ -82,7 +82,7 @@ export function RouteMap({
                 [driver.lat, driver.lng],
                 [pickup.lat, pickup.lng],
               ]}
-              color={BRAND}
+              color={ROUTE_COLOR}
               weight={3}
               opacity={0.6}
               dashArray="6"
