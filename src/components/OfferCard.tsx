@@ -78,6 +78,10 @@ export function OfferCard({
     : undefined
   const canSurcharge = me != null && route.distanceM >= SURCHARGE_MIN_DISTANCE_M
   const effectiveSurcharge = canSurcharge ? surcharge : 0
+  // Which preset chip reads as "selected": the largest preset ≤ the current
+  // amount, so values above ₱15 (reached via +5) keep the ₱15 chip highlighted.
+  const topPreset = SURCHARGE_PRESETS[SURCHARGE_PRESETS.length - 1]
+  const selectedPreset = Math.min(surcharge, topPreset)
 
   return (
     <div className="rounded-xl border-2 border-brand bg-white p-4 shadow-lg">
@@ -113,7 +117,7 @@ export function OfferCard({
                 onClick={() => setSurcharge(amt)}
                 className={
                   'flex-1 rounded-md py-1.5 text-sm font-semibold transition ' +
-                  (surcharge === amt
+                  (selectedPreset === amt
                     ? 'bg-brand text-white'
                     : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50')
                 }
@@ -134,18 +138,18 @@ export function OfferCard({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="flex flex-col gap-2">
         <button
           onClick={() => onDecline(false)}
           disabled={busy}
-          className="rounded-lg border border-gray-300 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+          className="w-full rounded-lg border border-gray-300 py-2.5 font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
         >
           Decline
         </button>
         <button
           onClick={() => onAccept(effectiveSurcharge)}
           disabled={busy}
-          className="rounded-lg bg-brand py-2.5 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
+          className="w-full rounded-lg bg-brand py-2.5 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
         >
           {busy ? '…' : effectiveSurcharge > 0 ? `Request +₱${effectiveSurcharge} & accept` : 'Accept'}
         </button>
