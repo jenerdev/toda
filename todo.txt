@@ -1,3 +1,5 @@
+- add version on the app. and display it. each deployment should increase this version
+- notify driver. when app is open but other app is active. or when phone is locked. can you notify?
 
 
 - add notifications

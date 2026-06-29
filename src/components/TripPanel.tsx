@@ -39,6 +39,7 @@ export function TripPanel({
   locationStatus,
   driverCoords,
   locationAccuracy,
+  locationSyncError,
 }: {
   ride: Ride
   onComplete: () => void
@@ -48,6 +49,7 @@ export function TripPanel({
   locationStatus: LocPublishStatus
   driverCoords: { lat: number; lng: number } | null
   locationAccuracy: number | null
+  locationSyncError: string | null
 }) {
   const { data: rider } = useCounterpart(ride.id, true)
   const loc = LOC_MESSAGE[locationStatus]
@@ -82,6 +84,11 @@ export function TripPanel({
             see you in the wrong spot. Turn on <span className="font-medium">Precise Location</span>{' '}
             for this site: iOS Settings → Privacy &amp; Security → Location Services → your browser →
             Precise Location.
+          </p>
+        )}
+        {locationSyncError && (
+          <p className="mt-2 text-xs text-red-600">
+            ⚠️ Couldn’t share your location with the rider: {locationSyncError}
           </p>
         )}
       </div>

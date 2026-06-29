@@ -16,6 +16,9 @@ export interface DriverLocationPublish {
   /** Reported accuracy of the latest fix, in metres (null until first fix).
       A large value usually means iOS "Precise Location" is off for the site. */
   accuracy: number | null
+  /** Error message if the last update_driver_location write failed (so the
+      driver knows the rider can't see them, and we can diagnose). */
+  syncError: string | null
 }
 
 /**
@@ -29,12 +32,14 @@ export function useDriverLocationPublisher(enabled: boolean): DriverLocationPubl
   const [status, setStatus] = useState<LocPublishStatus>('idle')
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [accuracy, setAccuracy] = useState<number | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!enabled) {
       setStatus('idle')
       setCoords(null)
       setAccuracy(null)
+      setSyncError(null)
       return
     }
     if (!('geolocation' in navigator)) {
@@ -44,7 +49,7 @@ export function useDriverLocationPublisher(enabled: boolean): DriverLocationPubl
 
     setStatus('starting')
 
-    const publish = (pos: GeolocationPosition) => {
+    const publish = async (pos: GeolocationPosition) => {
       // Publish the best fix we get and surface its accuracy. We don't silently
       // drop coarse fixes — that just freezes the marker at a stale spot with no
       // explanation. Instead the UI warns the driver when accuracy is poor
@@ -52,10 +57,13 @@ export function useDriverLocationPublisher(enabled: boolean): DriverLocationPubl
       setStatus('publishing')
       setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude })
       setAccuracy(pos.coords.accuracy ?? null)
-      void supabase.rpc('update_driver_location', {
+      // Write to the DB so the commuter can read it. Surface failures instead of
+      // swallowing them — a failed write is exactly why a rider wouldn't see us.
+      const { error } = await supabase.rpc('update_driver_location', {
         p_lat: pos.coords.latitude,
         p_lng: pos.coords.longitude,
       })
+      setSyncError(error ? error.message || 'Unknown error' : null)
     }
     const onError = (err: GeolocationPositionError) => {
       setStatus(err.code === err.PERMISSION_DENIED ? 'denied' : 'error')
@@ -78,5 +86,5 @@ export function useDriverLocationPublisher(enabled: boolean): DriverLocationPubl
     return () => navigator.geolocation.clearWatch(watchId)
   }, [enabled])
 
-  return { status, coords, accuracy }
+  return { status, coords, accuracy, syncError }
 }

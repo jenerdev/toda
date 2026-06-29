@@ -38,6 +38,7 @@ export default function DriverHome() {
     status: locationStatus,
     coords: driverCoords,
     accuracy: locationAccuracy,
+    syncError: locationSyncError,
   } = useDriverLocationPublisher(Boolean(activeRide))
 
   // Keep the driver "fresh" so dispatch's stale-tab filter doesn't drop them.
@@ -139,6 +140,7 @@ export default function DriverHome() {
           locationStatus={locationStatus}
           driverCoords={driverCoords}
           locationAccuracy={locationAccuracy}
+          locationSyncError={locationSyncError}
         />
       )}
 
