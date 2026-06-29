@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthProvider'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { ReloadPrompt } from './components/ReloadPrompt'
+import { ReconnectBanner } from './components/ReconnectBanner'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import CommuterHome from './pages/CommuterHome'
@@ -24,6 +25,7 @@ function RoleHome() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ReconnectBanner />
       <ReloadPrompt />
       <Routes>
         <Route path="/login" element={<Login />} />

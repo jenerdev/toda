@@ -116,7 +116,9 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   (all with active subscriptions) clustered around the `CommuterHome` `DEFAULT_CENTER` (14.5995, 120.9842); each logs
   in via the normal phone + OTP `1234` flow. Includes a liveness-refresh snippet (drivers go stale after 60s with no
   live heartbeat tab) and `supabase/seed_cleanup.sql` to remove it all via `auth.users` cascade.
-- **Empty/error/loading-state pass** across screens; reconnect banner on realtime drop.
+- **Empty/error/loading-state pass** across screens. ✅ **Reconnect banner on realtime drop** —
+  `useRealtimeStatus`/`ReconnectBanner` show a top "Reconnecting… live updates paused" bar when the Realtime socket
+  drops (while channels are active) and refetch all queries on recovery.
 - ✅ **No-drivers "notify me"** — when a booking returns `no_drivers`, the commuter can arm a watch (`NoDriversPanel`
   + `useAvailableDrivers`, live on `driver_states`). When a driver comes online it shows an in-app "driver available
   → Book now" CTA (one-tap re-book reusing the pinned location) and fires a system notification if permission was

@@ -305,4 +305,5 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   fix** (e.g. iOS Precise Location off) shows an amber warning with the fix.
 - Notifications blocked → the "Enable ride alerts" / notify-me prompts explain how to re-enable (and, on iPhone, that
   the PWA must be installed to the Home Screen first).
-- Network/realtime drop → reconnect banner; never leave a spinner forever. *(reconnect banner still TODO — see ROADMAP)*
+- Network/realtime drop → a top **"Reconnecting… live updates paused"** banner (`ReconnectBanner`) appears while the
+  Realtime socket is down and clears on reconnect (which also refetches data); never leave a spinner forever.
