@@ -71,6 +71,8 @@ export interface RideOffer {
   status: OfferStatus
   offered_at: string
   responded_at: string | null
+  // Reason the commuter gave when declining a proposed fare (relayed to the driver).
+  decline_reason: string | null
 }
 
 export interface Renewal {

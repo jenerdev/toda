@@ -94,6 +94,7 @@ The dispatch sequence — one row per (ride, driver) offer.
 | `status` | `text` | `pending` \| `accepted` \| `declined` \| `expired` \| `awaiting_approval` (held while the commuter decides on a proposed fare/surcharge, `0013`/`0015`) |
 | `offered_at` | `timestamptz` | default `now()` (timeout sweep uses this) |
 | `responded_at` | `timestamptz` null | |
+| `decline_reason` | `text` null | reason the commuter gave when declining a proposed fare (e.g. "Requested fare is too high"); relayed to the driver (`0018`) |
 
 ### `messages`
 In-ride chat between the two participants.

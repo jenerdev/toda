@@ -168,10 +168,10 @@ export default function CommuterHome() {
     await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })
   }
 
-  async function rejectSurcharge() {
+  async function rejectSurcharge(reason: string | null) {
     if (!ride) return
     setBusy(true)
-    await supabase.rpc('reject_surcharge', { p_ride_id: ride.id })
+    await supabase.rpc('reject_surcharge', { p_ride_id: ride.id, p_reason: reason })
     setBusy(false)
     await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })
   }

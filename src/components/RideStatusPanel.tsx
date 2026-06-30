@@ -33,7 +33,7 @@ export function RideStatusPanel({
   onRebook: () => void
   rebooking: boolean
   onApproveSurcharge: () => void
-  onRejectSurcharge: () => void
+  onRejectSurcharge: (reason: string | null) => void
   surchargeBusy: boolean
 }) {
   const matched = ride.status === 'accepted' || ride.status === 'enroute'

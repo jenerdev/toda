@@ -214,8 +214,9 @@ fully-closed app would need Web Push — see ROADMAP.)
   a silent vanish; a **manual** decline shows nothing (they already know). Dismiss → back to the online/queue view.
 - If the driver proposed a fare and the **rider declines (or lets it lapse)** while in "Waiting for rider…", the offer
   flips to `declined` and the driver gets a **"Fare not approved"** notice (`NoticeModal`, 🙅) naming the proposed
-  amount — detected via a Realtime watch on the driver's own offers (`awaiting_approval` → `declined`), so the waiting
-  card doesn't just vanish. Approval (→ `accepted`) instead opens the trip; no notice.
+  amount **and the rider's reason** (if given, e.g. *"Requested fare is too high"*) — both read from the Realtime watch
+  on the driver's own offers (`awaiting_approval` → `declined`, with `decline_reason`), so the waiting card doesn't just
+  vanish. Approval (→ `accepted`) instead opens the trip; no notice.
 
 ### Fare approval (commuter) — appears in place of "Finding you a driver…"
 ```
@@ -231,8 +232,11 @@ fully-closed app would need Web Push — see ROADMAP.)
 ```
 - When a driver proposes a fare, the commuter's `searching` view becomes this amber prompt (`FareApprovalPanel`)
   with a 2-minute countdown and the **`FareBreakdown`**. **Approve** → ride proceeds (`accepted`), the agreed fare
-  shows on both sides during the trip and in the completion confirmation. **Decline / timeout** → the ride is offered to
-  the next driver. Copy stresses the money is **cash to the driver** and the app doesn't set fares.
+  shows on both sides during the trip and in the completion confirmation. **Decline** → a second step asks **"Why are
+  you declining? (optional)"** with one-tap reason chips (*"Requested fare is too high"*, *"Too expensive for the
+  distance"*, *"Changed my mind"*) plus "Decline without a reason"; the reason is stored on the declined offer
+  (`ride_offers.decline_reason`, `0018`) and surfaced to the driver. **Timeout** declines with no reason. Either way the
+  ride is offered to the next driver. Copy stresses the money is **cash to the driver** and the app doesn't set fares.
 
 ### On-trip / complete (driver)
 ```
@@ -341,7 +345,8 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
 - `OfferCard` — countdown + accept/decline; **shows the pickup address, destination, + a route map up-front**, plus a
   single all-in **fare** selector (mandatory, min ₱20, ₱5 steps).
 - `FareApprovalPanel` — commuter's amber prompt to approve/decline a driver's proposed fare (2-minute countdown); shows
-  the `FareBreakdown`. Replaced the old single-amount `SurchargeApprovalPanel`.
+  the `FareBreakdown`, and on Decline offers one-tap **reason** chips relayed to the driver. Replaced the old
+  single-amount `SurchargeApprovalPanel`.
 - `FareBreakdown` — fare display (cash): one **"Fare (cash) ₱X"** line for the current single-fare flow; legacy rides
   with a separate surcharge still render the itemized receipt. Used by `FareApprovalPanel`, `RideStatusPanel`, and
   `TripPanel`. Renders nothing when the total is 0.

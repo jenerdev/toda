@@ -150,8 +150,9 @@ Because a fare is mandatory, **every** acceptance runs the approval handshake (n
   stamps `rides.pending_fare` + `pending_driver_id` (the ride stays `searching`, **held** to that driver — dispatch
   skips drivers holding a `pending`/`awaiting_approval` offer, so no one else is offered).
 - The commuter reads the request off **their own `rides` row** (no new RLS), sees the fare (`FareBreakdown`), and calls
-  **`approve_surcharge`** (→ ride `accepted`, `fare` recorded, driver `on_trip`) or **`reject_surcharge`** (→ offer
-  `declined`, `_offer_to_next_driver`).
+  **`approve_surcharge`** (→ ride `accepted`, `fare` recorded, driver `on_trip`) or **`reject_surcharge(…, p_reason)`**
+  (→ offer `declined` with an optional `decline_reason`, `_offer_to_next_driver`). The driver sees the reason via the
+  Realtime watch on their own offers.
 - The offer has a **2-minute** client countdown (`OFFER_TIMEOUT_SECONDS`); the rider's fare approval has its own
   **2-minute** countdown. The money is still **cash** — the app only relays/records the amount.
 

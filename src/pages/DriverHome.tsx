@@ -58,8 +58,8 @@ export default function DriverHome() {
   // holds the pickup of the missed ride, null when the notice is dismissed.
   const [missedPickup, setMissedPickup] = useState<string | null>(null)
   // When the rider declines (or lets lapse) a fare the driver proposed, tell the
-  // driver — holds the declined total (₱), null when the notice is dismissed.
-  const [declinedFare, setDeclinedFare] = useState<number | null>(null)
+  // driver — holds the declined amount (₱) + the rider's reason, null when dismissed.
+  const [declined, setDeclined] = useState<{ amount: number; reason: string | null } | null>(null)
   // The amount the driver proposed while awaiting approval, keyed by offer id, so
   // a later 'declined' event on that offer can name it. Populated from the offer.
   const proposalRef = useRef<Map<string, number>>(new Map())
@@ -81,11 +81,11 @@ export default function DriverHome() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'ride_offers', filter: `driver_id=eq.${user.id}` },
         (payload) => {
-          const row = payload.new as { id: string; status: string }
+          const row = payload.new as { id: string; status: string; decline_reason: string | null }
           const proposals = proposalRef.current
           if (!proposals.has(row.id)) return
           if (row.status === 'declined') {
-            setDeclinedFare(proposals.get(row.id) ?? 0)
+            setDeclined({ amount: proposals.get(row.id) ?? 0, reason: row.decline_reason ?? null })
             proposals.delete(row.id)
           } else if (row.status === 'accepted' || row.status === 'expired') {
             proposals.delete(row.id) // approved or cancelled — no decline notice
@@ -238,12 +238,16 @@ export default function DriverHome() {
       />
 
       <NoticeModal
-        open={declinedFare !== null}
+        open={declined !== null}
         emoji="🙅"
         title="Fare not approved"
-        message={`The rider didn't approve your ₱${declinedFare ?? 0} fare, so the ride was passed to the next driver. Stay online — another request may come soon.`}
+        message={
+          `The rider didn't approve your ₱${declined?.amount ?? 0} fare` +
+          (declined?.reason ? ` — "${declined.reason}"` : '') +
+          `. The ride was passed to the next driver. Stay online — another request may come soon.`
+        }
         buttonLabel="Got it"
-        onClose={() => setDeclinedFare(null)}
+        onClose={() => setDeclined(null)}
       />
 
       {/* Verification gate: an unapproved driver can't go online. (Enforced

@@ -267,6 +267,7 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0015_trip_fare.sql` | `rides.fare`/`pending_fare`; `respond_offer` takes `p_fare` (drops the 3-arg version); `approve_surcharge`/`reject_surcharge`/`cancel_ride` handle the fare alongside the surcharge; surcharge gate tightened 1 km → 200 m (client-side) |
 | `0016_offer_timeout.sql` | Rider-pickup time limit 30 s → **2 min**: `expire_stale_offers` sweep interval bumped to match the client `OFFER_TIMEOUT_SECONDS` (120) |
 | `0017_min_fare.sql` | Mandatory fare: `respond_offer` requires a proposed fare **≥ ₱20** on accept (no zero-fare/instant accept); scoped to the accept branch so decline is unaffected |
+| `0018_decline_reason.sql` | `ride_offers.decline_reason`; `reject_surcharge` takes an optional `p_reason` (drops the 1-arg version) and stores it on the declined offer → relayed to the driver |
 
 ---
 
