@@ -1,11 +1,20 @@
-- notify driver. when app is open but other app is active. or when phone is locked. can you notify when is next on queue then commuter book but the app is not active?
+- pin on the map of commuter should not be re pined. cannot be pinned manually
 
-- success/confirmatin message when ride was complete on both driver and commuter.
+- app should only available for mobile. not available on desktop
 
+- bug on cancelled/declined ride
+- bug on PWA. loading.. freeze. auto reload for a certain period?
+
+- advertisement ai video
+- on OTP on login/registration. please add. did not receieve a code. resend. add countdown for 2 mins. after 2 minutes can click the resend
+
+#BUG
+ 
+ 
 - add notifications
 
 # Design/Architecture
-- final layout and UI design
+- final layout and UI design. UI/UX Improvement
 - data store age? expiration.
 - session expire
 - Terms and Conditions upon signup

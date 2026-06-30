@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthProvider'
 import { MapPicker, type LatLng } from '../components/MapPicker'
@@ -21,33 +21,14 @@ const DESTINATION_QUICK_PICKS = ['Alfamart', 'Barangay Hall', 'Dear Joe', 'Balen
 // One-tap reasons a commuter can attach when cancelling an accepted ride.
 const COMMUTER_CANCEL_REASONS = ['Driver takes too long to arrive', 'Fare is too high']
 
-// Remember the rider's last pickup address + destination across sessions so the
-// next booking is mostly pre-filled. localStorage can throw (private mode /
-// quota), so reads/writes are guarded.
-const STORAGE_KEYS = { pickup: 'mq.pickup_address', destination: 'mq.destination' }
-function loadField(key: string): string {
-  try {
-    return localStorage.getItem(key) ?? ''
-  } catch {
-    return ''
-  }
-}
-function saveField(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    /* ignore — persistence is best-effort */
-  }
-}
-
 export default function CommuterHome() {
   const { user, profile } = useAuth()
   const qc = useQueryClient()
   const { ride, loading, error: rideError } = useActiveRide(user?.id)
 
   const [pickup, setPickup] = useState<LatLng>(DEFAULT_CENTER)
-  const [address, setAddress] = useState(() => loadField(STORAGE_KEYS.pickup))
-  const [destination, setDestination] = useState(() => loadField(STORAGE_KEYS.destination))
+  const [address, setAddress] = useState('')
+  const [destination, setDestination] = useState('')
   const [locating, setLocating] = useState(false)
   // True once the rider's real GPS location has been pinned — required before
   // booking, since the driver needs an accurate spot to find them.
@@ -59,9 +40,17 @@ export default function CommuterHome() {
 
   const { hasAccess } = accessState(profile)
 
-  // Persist pickup + destination so they're remembered next session.
-  useEffect(() => saveField(STORAGE_KEYS.pickup, address), [address])
-  useEffect(() => saveField(STORAGE_KEYS.destination, destination), [destination])
+  // Pre-fill pickup + destination from the rider's account (stamped by book_ride
+  // on each booking — see migration 0022). Seed once when the profile arrives so
+  // it never clobbers what the rider is currently typing; the realtime profile
+  // updates that follow a booking are ignored here.
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (seeded.current || !profile) return
+    seeded.current = true
+    if (profile.last_pickup_address) setAddress(profile.last_pickup_address)
+    if (profile.last_destination) setDestination(profile.last_destination)
+  }, [profile])
 
   // If location was already authorized, pin automatically on load (no prompt).
   // Undecided / denied users still use the button.

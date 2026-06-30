@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAdminRenewals, type PendingRenewal } from '../hooks/useAdminRenewals'
 import { useAdminDriverApplications, type PendingApplication } from '../hooks/useAdminDriverApplications'
+import { useRideStats, type StatsRange } from '../hooks/useRideStats'
 import { Loading, EmptyState, ErrorState } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { SUBSCRIPTION_PRICE } from '../lib/subscription'
@@ -14,6 +15,9 @@ export default function Admin() {
   return (
     <div className="flex flex-1 flex-col gap-6 p-4">
       <h2 className="text-xl font-semibold">Admin review</h2>
+
+      {/* Reports */}
+      <ReportsSection />
 
       {/* Driver verification */}
       <section className="flex flex-col gap-2">
@@ -60,6 +64,111 @@ export default function Admin() {
           renewals.map((r) => <RenewalCard key={r.id} renewal={r} />)
         )}
       </section>
+    </div>
+  )
+}
+
+function ReportsSection() {
+  const [range, setRange] = useState<StatsRange>('all')
+  const { stats, loading, error, refetch, refreshing } = useRideStats(range)
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Reports</h3>
+        <div className="flex items-center gap-1">
+          {(['all', '30d'] as StatsRange[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold transition ${
+                range === r ? 'bg-brand text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {r === 'all' ? 'All time' : 'Last 30 days'}
+            </button>
+          ))}
+          <button
+            onClick={() => refetch()}
+            disabled={refreshing}
+            className="ml-1 rounded-full px-2.5 py-1 text-xs font-semibold text-brand-dark hover:bg-gray-100 disabled:opacity-60"
+          >
+            {refreshing ? '…' : '↻ Refresh'}
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <Loading />
+      ) : error ? (
+        <ErrorState message="Couldn’t load reports." onRetry={() => refetch()} />
+      ) : !stats ? (
+        <EmptyState>No data yet.</EmptyState>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <StatCard label="Completed" value={stats.completed} cls="text-green-700" />
+            <StatCard label="Cancelled" value={stats.cancelled} cls="text-gray-700" />
+            <StatCard
+              label="Missed"
+              value={stats.missed}
+              cls="text-amber-700"
+              hint="Driver let the offer expire"
+            />
+            <StatCard
+              label="Fare declines"
+              value={stats.fare_declined}
+              cls="text-red-600"
+              hint="Rejected fare proposals, not cancelled rides"
+            />
+            <StatCard
+              label="No drivers"
+              value={stats.no_drivers}
+              cls="text-amber-700"
+              hint="Booked but nobody available"
+            />
+          </div>
+
+          <div className="mt-1 rounded-xl border bg-white p-4">
+            <p className="text-sm font-medium">Cancellation reasons</p>
+            <p className="-mt-0.5 text-xs text-gray-400">
+              Only captured for rides cancelled after a driver accepted; earlier cancels have none.
+            </p>
+            {stats.cancellation_reasons.length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">No cancellation reasons recorded.</p>
+            ) : (
+              <ul className="mt-2 space-y-1">
+                {stats.cancellation_reasons.map((r) => (
+                  <li key={r.reason} className="flex justify-between gap-3 text-sm">
+                    <span className="truncate text-gray-700">{r.reason}</span>
+                    <span className="shrink-0 font-semibold text-gray-500">×{r.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+function StatCard({
+  label,
+  value,
+  cls,
+  hint,
+}: {
+  label: string
+  value: number
+  cls: string
+  hint?: string
+}) {
+  return (
+    <div className="rounded-xl border bg-white p-4">
+      <p className={`text-2xl font-bold ${cls}`}>{value}</p>
+      <p className="text-sm font-medium text-gray-700">{label}</p>
+      {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
     </div>
   )
 }

@@ -108,6 +108,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user?.id])
 
+  // A backgrounded tab gets its realtime socket dropped, so it can MISS the
+  // profile UPDATE that should evict it when the account logs in elsewhere
+  // (postgres_changes never replays missed events) — which left a superseded
+  // device still signed in. Re-check the account's active session whenever this
+  // tab regains focus / visibility, so it signs itself out the moment the user
+  // looks at it again. This NEVER re-claims (last login wins); it only validates.
+  useEffect(() => {
+    const uid = session?.user?.id
+    if (!uid) return
+    async function revalidate() {
+      if (document.visibilityState !== 'visible') return
+      const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
+      const p = (data as Profile) ?? null
+      if (!p) return
+      setProfile(p)
+      // Superseded by a login elsewhere → sign out. Don't touch driver state:
+      // it's keyed by account, so the now-active device owns it.
+      if (p.active_session_id && p.active_session_id !== getDeviceSessionId()) {
+        markEvicted()
+        await supabase.auth.signOut()
+      }
+    }
+    document.addEventListener('visibilitychange', revalidate)
+    window.addEventListener('focus', revalidate)
+    return () => {
+      document.removeEventListener('visibilitychange', revalidate)
+      window.removeEventListener('focus', revalidate)
+    }
+  }, [session?.user?.id])
+
   async function signOut() {
     // Leave the queue before logging out so a signed-out driver can't be
     // offered rides. The RPC safely no-ops if the driver is mid-trip.

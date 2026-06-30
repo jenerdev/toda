@@ -30,6 +30,10 @@ export interface Profile {
   // Id of the device that currently holds this account's single active session
   // (set by claim_session on login). A mismatch signs the other device out.
   active_session_id: string | null
+  // The rider's last booked pickup address + destination, stamped by book_ride
+  // so the next booking pre-fills from the account (follows them across devices).
+  last_pickup_address: string | null
+  last_destination: string | null
   created_at: string
 }
 
@@ -78,6 +82,13 @@ export interface RideOffer {
   responded_at: string | null
   // Reason the commuter gave when declining a proposed fare (relayed to the driver).
   decline_reason: string | null
+  // True only when this offer expired because the driver never responded (set by
+  // the expire_stale_offers sweep) — distinct from offers voided by a ride being
+  // taken elsewhere or by a commuter cancel. Drives the "missed" report.
+  timed_out: boolean
+  // True only when the commuter rejected this offer's proposed fare/surcharge
+  // (set by reject_surcharge) — distinct from a plain driver decline.
+  fare_rejected: boolean
 }
 
 export interface Renewal {
@@ -110,6 +121,19 @@ export interface Message {
   sender_id: string
   body: string
   created_at: string
+}
+
+/** Aggregate ride-outcome counts for the admin Reports section, returned by the
+ *  `admin_ride_stats` RPC. `missed` = offers a driver let expire; `fare_declined`
+ *  = fare proposals the commuter rejected (re-dispatch events, not terminated
+ *  rides). `cancellation_reasons` covers only rides cancelled after acceptance. */
+export interface RideStats {
+  completed: number
+  cancelled: number
+  no_drivers: number
+  missed: number
+  fare_declined: number
+  cancellation_reasons: { reason: string; count: number }[]
 }
 
 /** Seconds a driver has to accept an offer before it auto-declines to the next
