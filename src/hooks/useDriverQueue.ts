@@ -32,17 +32,28 @@ export function useDriverQueue(userId: string | undefined) {
     },
   })
 
-  // Keep the list fresh in real time across all open clients.
+  // Keep the list fresh in real time across all open clients — but debounced.
+  // This is a wildcard subscription (every driver's heartbeat + location write
+  // hits it), so without coalescing a busy queue would fire one refetch per event
+  // for every connected client. Schedule at most one refetch per 1.5s window.
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
     const channel = supabase
       .channel('driver_states_changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'driver_states' },
-        () => qc.invalidateQueries({ queryKey: ['driverQueue'] }),
+        () => {
+          if (timer) return // a refetch is already scheduled — coalesce this burst
+          timer = setTimeout(() => {
+            timer = undefined
+            void qc.invalidateQueries({ queryKey: ['driverQueue'] })
+          }, 1500)
+        },
       )
       .subscribe()
     return () => {
+      if (timer) clearTimeout(timer)
       void supabase.removeChannel(channel)
     }
   }, [qc])

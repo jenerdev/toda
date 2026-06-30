@@ -13,7 +13,7 @@ export function useMessages(rideId: string | undefined, senderId: string | undef
     queryFn: async (): Promise<Message[]> => {
       const { data, error } = await supabase
         .from('messages')
-        .select('*')
+        .select('id, ride_id, sender_id, body, created_at')
         .eq('ride_id', rideId!)
         .order('created_at', { ascending: true })
       if (error) throw error

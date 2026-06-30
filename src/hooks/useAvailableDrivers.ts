@@ -1,17 +1,20 @@
-import { useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 
 /**
- * Live count of drivers who are online AND available right now, kept fresh via
- * Realtime on driver_states. Mirrors dispatch's liveness rule (ignores drivers
- * whose heartbeat is stale > 60s) so the count reflects who could actually be
- * offered a ride. Used by the commuter's "notify me when a driver's available"
- * watch on the no-drivers screen.
+ * Count of drivers who are online AND available right now. Mirrors dispatch's
+ * liveness rule (ignores drivers whose heartbeat is stale > 60s) so the count
+ * reflects who could actually be offered a ride. Used by the commuter's "notify
+ * me when a driver's available" watch on the no-drivers screen.
+ *
+ * Polled (every 20s) rather than Realtime-subscribed: a wildcard subscription on
+ * driver_states would fan EVERY driver's heartbeat + location write out to EVERY
+ * commuter sitting on this screen (~N drivers × M commuters in realtime messages,
+ * the single biggest Supabase cost driver). A commuter only needs a coarse "are
+ * drivers free yet?" signal while they wait, so a light periodic count is far
+ * cheaper and plenty responsive.
  */
 export function useAvailableDrivers() {
-  const qc = useQueryClient()
-
   const { data } = useQuery({
     queryKey: ['availableDrivers'],
     queryFn: async (): Promise<number> => {
@@ -25,21 +28,8 @@ export function useAvailableDrivers() {
       if (error) throw error
       return count ?? 0
     },
+    refetchInterval: 20_000,
   })
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('available_drivers_watch')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'driver_states' },
-        () => qc.invalidateQueries({ queryKey: ['availableDrivers'] }),
-      )
-      .subscribe()
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [qc])
 
   return data ?? 0
 }

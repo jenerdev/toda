@@ -24,6 +24,7 @@ export function useAdminDriverApplications() {
         .select('*, driver:profiles!driver_applications_driver_id_fkey(full_name, phone)')
         .eq('status', 'pending')
         .order('submitted_at', { ascending: true })
+        .limit(200)
       if (error) throw error
       return (data as PendingApplication[]) ?? []
     },

@@ -23,6 +23,7 @@ export function useAdminRenewals() {
         .select('*, user:profiles!renewals_user_id_fkey(full_name, phone, subscription_until)')
         .eq('status', 'pending')
         .order('created_at', { ascending: true })
+        .limit(200)
       if (error) throw error
       return (data as PendingRenewal[]) ?? []
     },

@@ -8,7 +8,9 @@ import { supabase } from '../lib/supabase'
  * driver location) have silently stopped flowing.
  *
  * The realtime client in this version exposes no public open/close events, so
- * we poll its connection state. On recovery we refetch all queries so the UI
+ * we poll its connection state. The poll is a cheap in-memory check
+ * (`rt.isConnected()`) with no network/backend cost; we still keep the interval
+ * modest (5s) to limit churn. On recovery we refetch all queries so the UI
  * catches up on anything missed during the outage. Returns `true` while down.
  */
 export function useRealtimeStatus(): boolean {
@@ -37,7 +39,7 @@ export function useRealtimeStatus(): boolean {
     }
 
     check()
-    const id = setInterval(check, 2000)
+    const id = setInterval(check, 5000)
     return () => clearInterval(id)
   }, [qc])
 
