@@ -5,7 +5,10 @@
 - advertisement ai video
 
 #BUG
-- 
+- previously login a driver on my phone using PWA. then login a commuter. 
+i still recieve the driver notification
+- bug on Finding you a driver loading to long. when #1 driver is online but close the browser
+
  
 # Design/Architecture
 - final layout and UI design. UI/UX Improvement
