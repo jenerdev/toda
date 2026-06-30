@@ -135,15 +135,14 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   ("~450 m from you · ~2 min") so the driver can judge the pickup before accepting. Throttled (~per 100 m of driver
   movement) and **falls back to a straight line + great-circle distance** when the demo endpoint is unavailable.
   ⚠️ OSRM demo is best-effort; a keyed routing provider would be the upgrade for production.
-- ✅ **Driver-proposed fare + pickup surcharge (`0013`, `0015`)** — before accepting, the driver can propose a
-  **trip fare** (pickup → destination; chips ₱0/20/30/40/50 + **+10**, up to ₱1000) and, on a pickup **≥200 m** away
-  (was ≥1 km in `0013`, tightened to 200 m in `0015`), a **distance surcharge** (chips +₱0/5/10/15 + **+5**, up to ₱50).
-  If either is > 0 the commuter must **approve the breakdown** before the ride proceeds, else it's offered to the next
-  driver. Handshake via `respond_offer(…, p_surcharge, p_fare)` → offer `awaiting_approval` + `rides.pending_*` →
-  `approve_surcharge`/`reject_surcharge` (`OfferCard` selectors + `FareApprovalPanel`; `FareBreakdown` shows the
-  receipt everywhere). Framed as **relay-only** — money stays **cash**, the app only records the agreed amounts
-  (`rides.fare`/`rides.surcharge`). ⚠️ Fare-relay/TODA caveat in [`LEGAL.md`](LEGAL.md); the distance gate is
-  client-side (server caps the amounts; commuter approval is the guard).
+- ✅ **Driver-proposed fare (`0013`, `0015`)** — before accepting, the driver proposes a single all-in **trip fare**
+  (chips ₱0/20/30/40/50 + **+10**, up to ₱1000), folding any extra for a far pickup into that one number. If > 0 the
+  commuter must **approve** before the ride proceeds, else it's offered to the next driver. Handshake via
+  `respond_offer(…, p_fare)` → offer `awaiting_approval` + `rides.pending_fare` → `approve_surcharge`/`reject_surcharge`
+  (`OfferCard` selector + `FareApprovalPanel`; `FareBreakdown` shows the fare). Framed as **relay-only** — money stays
+  **cash**, the app only records the agreed amount (`rides.fare`). ⚠️ Fare-relay/TODA caveat in [`LEGAL.md`](LEGAL.md).
+  > The separate **pickup-surcharge** UI (`0013`, ≥200 m gate) was **retired** in favor of one fare — the driver folds
+  > pickup distance into the single fare. `rides.surcharge` + the surcharge RPC args are kept for already-agreed rides.
 - ✅ **Ride-outcome confirmation** — `useRideOutcome` + `RideOutcomeToast`: a dismissible modal shown to **both** the
   commuter and the driver when a ride ends — **completed** ("Ride/Trip completed!", cash-fare reminder) **or
   cancelled** ("back in the queue" for the driver, "book another ride" for the commuter). Driven by the realtime

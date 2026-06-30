@@ -33,15 +33,14 @@ The **fare is paid in cash, directly to the driver, outside the app.** The app n
 essentially a **digital version of waving down or phoning a tricycle** — something already completely normal and legal.
 It keeps MotoQueue clear of fare-regulation rules (fares stay the driver's existing franchise responsibility).
 
-> ⚠️ **Caveat — driver-proposed fare + pickup surcharge (`0013`, `0015`).** Before accepting, the driver may propose a
-> **trip fare** (pickup → destination) and, on a pickup ≥200 m away, a **distance surcharge**; the commuter approves the
-> breakdown before the ride. The money is **still cash** (no money moves through the app, so BSP e-money rules are not
-> engaged), but this is where the app stops being purely "dispatch" and becomes a fare-*relay*: it records and relays
-> agreed amounts. **This is the most legally sensitive feature** — if tricycle fares in the operating LGU are **fixed by
-> ordinance**, a driver naming the trip fare in-app (not just a surcharge) could conflict with the franchise's tariff,
-> so it is framed as a *relay only* ("MotoQueue doesn't set fares — the driver proposes, the rider agrees, cash") and
-> **must be cleared with the TODA/LGU before launch**. Both can be disabled by hiding the selectors (client-side gate)
-> if contentious; consider defaulting the trip fare to the ordinance rate where one exists.
+> ⚠️ **Caveat — the driver-proposed fare (`0013`, `0015`).** Before accepting, the driver may propose a single all-in
+> **trip fare** that the commuter approves before the ride. The money is **still cash** (no money moves through the app,
+> so BSP e-money rules are not engaged), but this is where the app stops being purely "dispatch" and becomes a
+> fare-*relay*: it records and relays an agreed amount. **This is the most legally sensitive feature** — if tricycle
+> fares in the operating LGU are **fixed by ordinance**, a driver naming the trip fare in-app could conflict with the
+> franchise's tariff, so it is framed as a *relay only* ("MotoQueue doesn't set fares — the driver proposes, the rider
+> agrees, cash") and **must be cleared with the TODA/LGU before launch**. It can be disabled by hiding the fare selector
+> (client-side gate) if contentious; consider defaulting the fare to the ordinance rate where one exists.
 
 ## Are we a TNC (Transport Network Company)?
 

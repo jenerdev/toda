@@ -141,20 +141,20 @@ sequenceDiagram
   (reusing the pinned pickup) the moment a driver comes online — in-app via the Notifications API; for a closed app
   this is the job of the ride-offer Web Push (below).
 
-### Fare/surcharge approval handshake (`0013`, `0015`)
-Before accepting, the driver may propose a **trip fare** (pickup → destination; chips ₱0/20/30/40/50 + **+10**, up to
-₱1000) and, on a pickup **≥200 m** away (gated client-side via the offer card's computed distance; was ≥1 km in `0013`,
-tightened to 200 m in `0015`), a **distance surcharge** (chips ₱0/5/10/15 + **+5**, up to ₱50; bounds enforced
-server-side). If either is > 0 the handshake adds one intermediate state without a new ride status:
-- Driver accepts with a fare/surcharge → `respond_offer(…, p_surcharge, p_fare)` puts the offer in **`awaiting_approval`**
-  and stamps `rides.pending_fare`/`pending_surcharge` + `pending_driver_id` (the ride stays `searching`, **held** to that
-  driver — dispatch skips drivers holding a `pending`/`awaiting_approval` offer, so no one else is offered).
-- The commuter reads the request off **their own `rides` row** (no new RLS), sees the **breakdown** (`FareBreakdown`),
-  and calls **`approve_surcharge`** (→ ride `accepted`, `fare`+`surcharge` recorded, driver `on_trip`) or
-  **`reject_surcharge`** (→ offer `declined`, `_offer_to_next_driver`).
-- Both fare/surcharge 0 = instant accept (fare agreed in person). The offer has a **2-minute** client countdown
-  (`OFFER_TIMEOUT_SECONDS`); the rider's fare approval has its own **2-minute** countdown. The money is still **cash** —
-  the app only relays/records the amounts.
+### Fare approval handshake (`0013`, `0015`)
+Before accepting, the driver may propose a single all-in **trip fare** (chips ₱0/20/30/40/50 + **+10**, up to ₱1000;
+bounds enforced server-side). They fold any extra for a far pickup into that one number — there is no separate
+surcharge selector in the UI (the `surcharge` plumbing is retained server-side for already-agreed rides). If the fare
+is > 0 the handshake adds one intermediate state without a new ride status:
+- Driver accepts with a fare → `respond_offer(…, p_surcharge=0, p_fare)` puts the offer in **`awaiting_approval`** and
+  stamps `rides.pending_fare` + `pending_driver_id` (the ride stays `searching`, **held** to that driver — dispatch
+  skips drivers holding a `pending`/`awaiting_approval` offer, so no one else is offered).
+- The commuter reads the request off **their own `rides` row** (no new RLS), sees the fare (`FareBreakdown`), and calls
+  **`approve_surcharge`** (→ ride `accepted`, `fare` recorded, driver `on_trip`) or **`reject_surcharge`** (→ offer
+  `declined`, `_offer_to_next_driver`).
+- Fare 0 = instant accept (agreed in person). The offer has a **2-minute** client countdown (`OFFER_TIMEOUT_SECONDS`);
+  the rider's fare approval has its own **2-minute** countdown. The money is still **cash** — the app only
+  relays/records the amount.
 
 ## Fares & money
 
@@ -163,11 +163,10 @@ never sees the amount. (Historical note: an early MVP charged a 5+5 **credit** f
 `transactions` ledger were **removed in `0008`** when the subscription model landed.) Revenue is the subscription
 below — never a per-ride charge.
 
-> **One exception to record: driver-proposed amounts (`0013`, `0015`).** Before accepting, the driver may propose a
-> **trip fare** (pickup → destination) and/or a **pickup surcharge** that the commuter approves; the app **records the
-> agreed amounts** (`rides.fare`/`rides.surcharge`) and relays the proposal, but the money is **still cash to the
-> driver** — no money moves through the app, so this stays clear of BSP e-money rules. It does, however, make the app a
-> fare-*relay* (not just dispatch), which has a
+> **One exception to record: the driver-proposed fare (`0013`, `0015`).** Before accepting, the driver may propose a
+> single all-in **trip fare** that the commuter approves; the app **records the agreed amount** (`rides.fare`) and
+> relays the proposal, but the money is **still cash to the driver** — no money moves through the app, so this stays
+> clear of BSP e-money rules. It does, however, make the app a fare-*relay* (not just dispatch), which has a
 > fare-regulation/TODA caveat — see [`LEGAL.md`](LEGAL.md).
 
 ## Subscriptions & access gating ✅ _(built `0008`–`0010` — see [`MONETIZATION.md`](MONETIZATION.md))_

@@ -194,7 +194,7 @@ export default function DriverHome() {
             <OfferCard
               offer={offer}
               busy={offerBusy}
-              onAccept={(surcharge, fare) => respond('accept', false, surcharge, fare)}
+              onAccept={(fare) => respond('accept', false, 0, fare)}
               onDecline={handleDecline}
             />
           </div>

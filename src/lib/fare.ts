@@ -11,4 +11,4 @@ export const FARE_MAX = 1000
 
 /** Shown to the driver next to the fare selector. */
 export const FARE_DRIVER_NOTE =
-  'Propose the cash fare for the trip to the destination — paid to you in cash. MotoQueue doesn’t set fares.'
+  'Propose the total cash fare for the trip (include any extra for a far pickup) — paid to you in cash. MotoQueue doesn’t set fares.'

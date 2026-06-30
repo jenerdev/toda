@@ -77,10 +77,10 @@ One row per booking request.
 | `created_at` | `timestamptz` | |
 | `accepted_at` | `timestamptz` null | |
 | `completed_at` | `timestamptz` null | |
-| `fare` | `int` | agreed **trip fare** (₱) for pickup → destination, 0 unless the driver proposed one and the commuter approved (`0015`). Cash — the app only records it. |
-| `surcharge` | `int` | agreed **pickup surcharge** (₱), 0 unless the driver requested one and the commuter approved (`0013`). Paid in cash — the app only records it. |
+| `fare` | `int` | agreed all-in **trip fare** (₱), 0 unless the driver proposed one and the commuter approved (`0015`). Cash — the app only records it. The current UI proposes only this single fare. |
+| `surcharge` | `int` | agreed **pickup surcharge** (₱) — **retired from the UI** (the driver now folds pickup distance into the single `fare`). Kept for already-agreed rides; new requests are always 0. The RPCs still accept it (`0013`). |
 | `pending_fare` | `int` null | transient: trip fare a driver is proposing, awaiting the commuter's approval (cleared on approve/reject/cancel) (`0015`) |
-| `pending_surcharge` | `int` null | transient: surcharge a driver is requesting, awaiting the commuter's approval (cleared on approve/reject/cancel) |
+| `pending_surcharge` | `int` null | transient surcharge (retired from UI; always 0 now) — cleared on approve/reject/cancel |
 | `pending_driver_id` | `uuid` null | transient: the driver holding the ride while the fare/surcharge is pending |
 
 ### `ride_offers`
