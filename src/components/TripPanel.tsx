@@ -1,6 +1,8 @@
 import { useCounterpart } from '../hooks/useCounterpart'
 import { Chat } from './Chat'
 import { RouteMap } from './RouteMap'
+import { RouteSummary } from './RouteSummary'
+import { FareBreakdown } from './FareBreakdown'
 import { useRoute } from '../hooks/useRoute'
 import { formatDistance, formatEta } from '../lib/geo'
 import type { LocPublishStatus } from '../hooks/useDriverLocationPublisher'
@@ -80,14 +82,9 @@ export function TripPanel({
             📞 {rider.phone}
           </a>
         )}
-        <p className="mt-3 text-sm font-medium text-gray-800">
-          Pickup: {ride.pickup_address ?? 'Pinned location'}
-        </p>
-        {ride.surcharge > 0 && (
-          <p className="mt-1 text-sm font-medium text-amber-700">
-            Agreed extra fare: +₱{ride.surcharge} (collect in cash)
-          </p>
-        )}
+        <RouteSummary pickup={ride.pickup_address} destination={ride.destination} className="mt-3" />
+        <FareBreakdown fare={ride.fare} surcharge={ride.surcharge} className="mt-3" />
+        <p className="mt-1 text-xs text-gray-400">Collect the fare in cash from the rider.</p>
         {loc.text && (
           <p className={'mt-2 text-xs ' + (loc.warn ? 'text-red-600' : 'text-gray-400')}>
             {loc.text}

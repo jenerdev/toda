@@ -5,7 +5,17 @@ import type { Ride, RideOffer } from '../types/db'
 
 export interface IncomingOffer {
   offer: Pick<RideOffer, 'id' | 'ride_id' | 'status' | 'offered_at'>
-  ride: Pick<Ride, 'id' | 'pickup_lat' | 'pickup_lng' | 'pickup_address' | 'status' | 'pending_surcharge'>
+  ride: Pick<
+    Ride,
+    | 'id'
+    | 'pickup_lat'
+    | 'pickup_lng'
+    | 'pickup_address'
+    | 'destination'
+    | 'status'
+    | 'pending_surcharge'
+    | 'pending_fare'
+  >
 }
 
 /**
@@ -32,7 +42,9 @@ export function useIncomingOffer(userId: string | undefined) {
 
       const { data: ride } = await supabase
         .from('rides')
-        .select('id, pickup_lat, pickup_lng, pickup_address, status, pending_surcharge')
+        .select(
+          'id, pickup_lat, pickup_lng, pickup_address, destination, status, pending_surcharge, pending_fare',
+        )
         .eq('id', offer.ride_id)
         .single()
 

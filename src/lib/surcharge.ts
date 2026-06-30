@@ -9,13 +9,8 @@ export const SURCHARGE_STEP = 5
 export const SURCHARGE_MAX = 50
 
 /** Only offer the surcharge when the pickup is at least this far from the driver. */
-export const SURCHARGE_MIN_DISTANCE_M = 1000
+export const SURCHARGE_MIN_DISTANCE_M = 200
 
 /** Shown to the driver next to the selector. */
 export const SURCHARGE_DRIVER_NOTE =
-  'Far pickup — you can request a distance surcharge, paid to you in cash. MotoQueue doesn’t set fares.'
-
-/** Shown to the commuter on the approval prompt. */
-export function surchargeCommuterPrompt(amount: number): string {
-  return `Your driver requests an extra ₱${amount} for the distance to your pickup. Paid in cash to the driver, like the fare — approve to proceed.`
-}
+  'Add a surcharge for the distance to the pickup, paid to you in cash. MotoQueue doesn’t set fares.'

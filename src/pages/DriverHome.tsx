@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthProvider'
 import { useDriverQueue } from '../hooks/useDriverQueue'
@@ -13,6 +13,8 @@ import { Loading, ErrorState } from '../components/States'
 import { OfferCard } from '../components/OfferCard'
 import { TripPanel } from '../components/TripPanel'
 import { RenewPanel } from '../components/RenewPanel'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { NoticeModal } from '../components/NoticeModal'
 import { DriverVerificationPanel } from '../components/DriverVerificationPanel'
 import { supabase } from '../lib/supabase'
 import { accessState } from '../lib/subscription'
@@ -50,6 +52,51 @@ export default function DriverHome() {
   const [busy, setBusy] = useState(false)
   const [offerBusy, setOfferBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Confirm modal for cancelling an accepted trip (replaces window.confirm).
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
+  // When an offer times out (auto-decline), tell the driver they missed it —
+  // holds the pickup of the missed ride, null when the notice is dismissed.
+  const [missedPickup, setMissedPickup] = useState<string | null>(null)
+  // When the rider declines (or lets lapse) a fare the driver proposed, tell the
+  // driver — holds the declined total (₱), null when the notice is dismissed.
+  const [declinedFare, setDeclinedFare] = useState<number | null>(null)
+  // The amount the driver proposed while awaiting approval, keyed by offer id, so
+  // a later 'declined' event on that offer can name it. Populated from the offer.
+  const proposalRef = useRef<Map<string, number>>(new Map())
+
+  useEffect(() => {
+    if (offer?.offer.status === 'awaiting_approval') {
+      const total = (offer.ride.pending_fare ?? 0) + (offer.ride.pending_surcharge ?? 0)
+      proposalRef.current.set(offer.offer.id, total)
+    }
+  }, [offer])
+
+  // Watch the driver's own offers: a proposal that flips to 'declined' means the
+  // rider rejected (or timed out) the fare; 'accepted' means they approved.
+  useEffect(() => {
+    if (!user?.id) return
+    const channel = supabase
+      .channel(`fare_decision_${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ride_offers', filter: `driver_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as { id: string; status: string }
+          const proposals = proposalRef.current
+          if (!proposals.has(row.id)) return
+          if (row.status === 'declined') {
+            setDeclinedFare(proposals.get(row.id) ?? 0)
+            proposals.delete(row.id)
+          } else if (row.status === 'accepted' || row.status === 'expired') {
+            proposals.delete(row.id) // approved or cancelled — no decline notice
+          }
+        },
+      )
+      .subscribe()
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [user?.id])
 
   async function toggle() {
     setError(null)
@@ -64,7 +111,7 @@ export default function DriverHome() {
     }
   }
 
-  async function respond(action: 'accept' | 'decline', auto = false, surcharge = 0) {
+  async function respond(action: 'accept' | 'decline', auto = false, surcharge = 0, fare = 0) {
     if (!offer) return
     // On auto-timeout we don't want to flip the button spinner / show errors.
     if (!auto) setOfferBusy(true)
@@ -72,6 +119,7 @@ export default function DriverHome() {
       p_offer_id: offer.offer.id,
       p_action: action,
       p_surcharge: surcharge,
+      p_fare: fare,
     })
     if (!auto) setOfferBusy(false)
     if (error && !auto) setError(error.message)
@@ -82,13 +130,21 @@ export default function DriverHome() {
     ])
   }
 
+  // Auto-decline (timeout) vs. an explicit tap: only the timeout needs a notice
+  // — on a manual decline the driver already knows. Capture the pickup before
+  // the offer is invalidated away so the notice can name it.
+  function handleDecline(auto: boolean) {
+    if (auto && offer) setMissedPickup(offer.ride.pickup_address || 'your area')
+    respond('decline', auto)
+  }
+
   async function cancelTrip() {
     if (!activeRide) return
-    if (!window.confirm("Cancel this trip? You'll be returned to the queue.")) return
     setError(null)
     setBusy(true)
     const { error } = await supabase.rpc('cancel_accepted_ride', { p_ride_id: activeRide.id })
     setBusy(false)
+    setConfirmingCancel(false)
     if (error) {
       setError(error.message)
       return
@@ -123,14 +179,26 @@ export default function DriverHome() {
         Hi{profile?.full_name ? `, ${profile.full_name}` : ''} 🏍️
       </h2>
 
-      {/* Incoming offer takes priority */}
+      {/* Incoming offer takes over the screen (incoming-call style) so the
+          driver focuses on the 2-minute decision. No backdrop-tap dismiss — that
+          would silently decline; the only exits are Decline/Accept or the
+          timeout (which auto-declines and moves to the next driver). */}
       {offer && !activeRide && (
-        <OfferCard
-          offer={offer}
-          busy={offerBusy}
-          onAccept={(surcharge) => respond('accept', false, surcharge)}
-          onDecline={(auto) => respond('decline', auto)}
-        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="New ride request"
+          className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/50 p-4"
+        >
+          <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto">
+            <OfferCard
+              offer={offer}
+              busy={offerBusy}
+              onAccept={(surcharge, fare) => respond('accept', false, surcharge, fare)}
+              onDecline={handleDecline}
+            />
+          </div>
+        </div>
       )}
 
       {/* Active trip */}
@@ -139,7 +207,7 @@ export default function DriverHome() {
           ride={activeRide}
           onComplete={complete}
           completing={busy}
-          onCancel={cancelTrip}
+          onCancel={() => setConfirmingCancel(true)}
           cancelling={busy}
           locationStatus={locationStatus}
           driverCoords={driverCoords}
@@ -147,6 +215,36 @@ export default function DriverHome() {
           locationSyncError={locationSyncError}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmingCancel}
+        title="Cancel this trip?"
+        message="You'll be returned to the queue and the rider will be notified."
+        confirmLabel="Cancel trip"
+        cancelLabel="Keep trip"
+        busy={busy}
+        destructive
+        onConfirm={cancelTrip}
+        onCancel={() => setConfirmingCancel(false)}
+      />
+
+      <NoticeModal
+        open={missedPickup !== null}
+        emoji="⏱️"
+        title="Ride missed"
+        message={`The timer ran out, so the ride to ${missedPickup} went to the next driver. Stay online — another request may come soon.`}
+        buttonLabel="Got it"
+        onClose={() => setMissedPickup(null)}
+      />
+
+      <NoticeModal
+        open={declinedFare !== null}
+        emoji="🙅"
+        title="Fare not approved"
+        message={`The rider didn't approve your ₱${declinedFare ?? 0} fare, so the ride was passed to the next driver. Stay online — another request may come soon.`}
+        buttonLabel="Got it"
+        onClose={() => setDeclinedFare(null)}
+      />
 
       {/* Verification gate: an unapproved driver can't go online. (Enforced
           server-side in driver_go_online too — this is the UX surface.) */}

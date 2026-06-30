@@ -47,13 +47,19 @@ export interface Ride {
   pickup_lat: number
   pickup_lng: number
   pickup_address: string | null
+  // Where the rider is going (free text, no geocoding) — shown to the driver.
+  destination: string | null
   status: RideStatus
   created_at: string
   accepted_at: string | null
   completed_at: string | null
-  // Pickup surcharge (₱): `surcharge` is the agreed amount once accepted;
-  // pending_* hold a driver's request while it awaits the commuter's approval.
+  // Fare + pickup surcharge (₱): `fare`/`surcharge` are the agreed amounts once
+  // accepted; pending_* hold a driver's proposal while it awaits the commuter's
+  // approval. `fare` is the trip fare (pickup → destination); `surcharge` is the
+  // extra for distance to the pickup. Both cash — the app only records them.
+  fare: number
   surcharge: number
+  pending_fare: number | null
   pending_surcharge: number | null
   pending_driver_id: string | null
 }
@@ -99,5 +105,7 @@ export interface Message {
   created_at: string
 }
 
-/** Seconds a driver has to accept an offer before it auto-declines to the next driver. */
-export const OFFER_TIMEOUT_SECONDS = 30
+/** Seconds a driver has to accept an offer before it auto-declines to the next
+ *  driver (the rider-pickup time limit). Keep in sync with the server-side
+ *  `expire_stale_offers` sweep interval (see migration 0016). */
+export const OFFER_TIMEOUT_SECONDS = 120

@@ -1,20 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import { surchargeCommuterPrompt } from '../lib/surcharge'
+import { FareBreakdown } from './FareBreakdown'
 
-const APPROVAL_SECONDS = 30
+const APPROVAL_SECONDS = 120
 
 /**
- * Commuter's prompt when a driver requests a distance surcharge before
- * accepting. Approve → ride proceeds with the surcharge; Decline (or letting the
- * countdown lapse) → the ride is offered to the next driver.
+ * Commuter's prompt when a driver proposes a fare (trip fare and/or pickup
+ * surcharge) before accepting. Shows the breakdown; Approve → ride proceeds with
+ * those amounts; Decline (or letting the countdown lapse) → offered to the next
+ * driver. The money is cash to the driver — the app only relays the proposal.
  */
-export function SurchargeApprovalPanel({
-  amount,
+export function FareApprovalPanel({
+  fare,
+  surcharge,
   onApprove,
   onReject,
   busy,
 }: {
-  amount: number
+  fare: number
+  surcharge: number
   onApprove: () => void
   onReject: () => void
   busy: boolean
@@ -36,15 +39,17 @@ export function SurchargeApprovalPanel({
   }, [onReject])
 
   return (
-    <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-5 text-center">
+    <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-5">
       <div className="flex items-center justify-between">
-        <span className="font-semibold text-amber-900">Extra fare requested</span>
+        <span className="font-semibold text-amber-900">Fare for approval</span>
         <span className="font-mono text-sm text-amber-700">
-          ⏱ 0:{String(remaining).padStart(2, '0')}
+          ⏱ {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
         </span>
       </div>
-      <p className="mt-2 text-3xl font-extrabold text-amber-900">+₱{amount}</p>
-      <p className="mt-1 text-sm text-amber-800">{surchargeCommuterPrompt(amount)}</p>
+      <p className="mt-1 text-sm text-amber-800">
+        Your driver proposed this fare for the trip. Paid in cash to the driver — approve to proceed.
+      </p>
+      <FareBreakdown fare={fare} surcharge={surcharge} className="mt-3" />
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
           onClick={onReject}

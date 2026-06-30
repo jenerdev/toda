@@ -2,7 +2,9 @@ import { useCounterpart } from '../hooks/useCounterpart'
 import { LiveTrackMap } from './LiveTrackMap'
 import { Chat } from './Chat'
 import { NoDriversPanel } from './NoDriversPanel'
-import { SurchargeApprovalPanel } from './SurchargeApprovalPanel'
+import { FareApprovalPanel } from './FareApprovalPanel'
+import { FareBreakdown } from './FareBreakdown'
+import { RouteSummary } from './RouteSummary'
 import type { Ride } from '../types/db'
 
 // One-tap canned replies for the commuter.
@@ -38,11 +40,12 @@ export function RideStatusPanel({
   const { data: driver } = useCounterpart(ride.id, matched)
 
   if (ride.status === 'searching') {
-    // A driver requested a distance surcharge — needs the commuter's approval.
-    if (ride.pending_surcharge && ride.pending_surcharge > 0) {
+    // A driver proposed a fare and/or pickup surcharge — needs the commuter's approval.
+    if ((ride.pending_fare ?? 0) > 0 || (ride.pending_surcharge ?? 0) > 0) {
       return (
-        <SurchargeApprovalPanel
-          amount={ride.pending_surcharge}
+        <FareApprovalPanel
+          fare={ride.pending_fare ?? 0}
+          surcharge={ride.pending_surcharge ?? 0}
           onApprove={onApproveSurcharge}
           onReject={onRejectSurcharge}
           busy={surchargeBusy}
@@ -53,9 +56,9 @@ export function RideStatusPanel({
       <div className="rounded-xl border bg-white p-6 text-center">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent" />
         <p className="font-medium text-gray-800">Finding you a driver…</p>
-        <p className="mt-1 text-sm text-gray-500">
-          Pickup: {ride.pickup_address ?? 'Pinned location'}
-        </p>
+        <div className="mt-4 flex justify-center text-left">
+          <RouteSummary pickup={ride.pickup_address} destination={ride.destination} />
+        </div>
         <button
           onClick={onCancel}
           disabled={cancelling}
@@ -87,14 +90,10 @@ export function RideStatusPanel({
             📞 {driver.phone}
           </a>
         )}
-        <p className="mt-3 text-sm text-gray-500">
-          Pickup: {ride.pickup_address ?? 'Pinned location'}
-        </p>
-        {ride.surcharge > 0 && (
-          <p className="mt-1 text-sm font-medium text-amber-700">
-            Agreed extra fare: +₱{ride.surcharge} (pay in cash)
-          </p>
-        )}
+        <div className="mt-3 flex justify-center text-left">
+          <RouteSummary pickup={ride.pickup_address} destination={ride.destination} />
+        </div>
+        <FareBreakdown fare={ride.fare} surcharge={ride.surcharge} className="mt-3 text-left" />
       </div>
 
       <LiveTrackMap
