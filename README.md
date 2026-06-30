@@ -9,12 +9,15 @@ where you are, and the **next driver in the queue** is dispatched to you.
 ## The core loop
 
 1. **Driver** registers (phone + one-time code) and goes **online** → joins the back of the queue.
-2. **Commuter** logs in, **types a pickup address**, and **pins their current location** on the map.
-3. The **first available driver** is notified **with the pickup shown up-front** → **Accept** or **Decline**. On a **far pickup** the driver can request a small **distance surcharge** that the commuter approves first (paid in cash).
-4. Decline / no response (30s) → the **next driver** is notified, and so on.
+2. **Commuter** logs in, **types a pickup address + destination**, and **pins their current location** on the map.
+3. The **first available driver** is notified **with the pickup, destination + map shown up-front** → to accept they
+   **propose a cash fare** (mandatory, min ₱20) which the **commuter approves** before the ride (paid in cash).
+4. Decline / no response (2 min) → the **next driver** is notified, and so on. If the commuter declines the fare (with
+   an optional reason), it's offered to the next driver.
 5. Accept → the commuter sees **"driver on the way"** with a **live map** + **chat**. The fare is **cash, paid to the
-   driver outside the app** — the app never handles ride money.
-6. Ride completes → **both sides see a completion confirmation**, and the driver **re-queues at the end**.
+   driver outside the app** — the app never handles ride money, it only relays the agreed amount.
+6. Ride completes → **both sides see a completion confirmation**, and the driver **re-queues at the end**. Either side
+   can cancel an accepted ride (with an optional reason shown to the other party).
 
 ### Access (subscription)
 
@@ -55,7 +58,7 @@ npm run dev          # Vite dev server (localhost)
 ```
 
 1. Copy `.env.example` → `.env.local` and fill in your Supabase **URL** + **anon key**.
-2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0013`).
+2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0020`).
    (No Supabase CLI/Docker required — everything server-side is plain SQL/RPC.)
 3. In Supabase **Auth → Providers → Email**, turn **"Confirm email" OFF** (phone sign-ups use synthetic emails).
 
@@ -86,8 +89,8 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 
 **Backend → Supabase** (one-time, managed — you just apply SQL):
 
-- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0013`). Order matters — later files
-  redefine earlier functions and `0008` drops the old `credits`/`transactions`.
+- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0020`). Order matters — later files
+  redefine earlier functions (e.g. `respond_offer`, `book_ride`) and `0008` drops the old `credits`/`transactions`.
 - **Auth → Providers → Email → "Confirm email" OFF** (phone sign-ups use synthetic, non-routable emails).
 - Bootstrap the first admin: `update public.profiles set is_admin = true where phone = '<your phone>';`
 - Optional: load `supabase/seed.sql` for a demo subdivision (verified+online drivers + a commuter; all log in with
@@ -96,6 +99,8 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 > Use a **separate Supabase project for prod vs. dev** so you never demo against live data. Full detail —
 > what-calls-what, Storage-policy caveats, post-deploy checklist — is in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-> **Status:** Core loop, ₱30/mo subscription + GCash renewal, driver verification, and Web Push ride alerts are built
-> (migrations `0001`–`0013`); the PWA is **deployed on Vercel**. The main pre-launch blocker is real SMS OTP (the
-> dummy `1234` is still in place). Remaining work and next steps are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> **Status:** Core loop, ₱30/mo subscription + GCash renewal, driver verification, and Web Push ride alerts are built;
+> plus ride **destination**, a mandatory driver-proposed **cash fare** with commuter approval, **decline/cancel
+> reasons**, 2-minute offer/approval timeouts, and **single-active-session** enforcement (migrations `0001`–`0020`).
+> The PWA is **deployed on Vercel**. The main pre-launch blocker is real SMS OTP (the dummy `1234` is still in place).
+> Remaining work and next steps are in [`docs/ROADMAP.md`](docs/ROADMAP.md).

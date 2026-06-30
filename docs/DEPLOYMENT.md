@@ -49,10 +49,13 @@ The frontend is a static Vite build (HTML/JS/CSS), so any static host works.
 ## Backend (Supabase) — managed; you just apply SQL
 
 You don't host a server and you don't need the CLI. To set up (or update) the backend, open the Supabase **SQL
-Editor** and run the migration files in `supabase/migrations/` **in order** (`0001` → `0013`). Apply them all in
-order — later migrations redefine earlier functions and **`0008` drops** `profiles.credits` + the `transactions`
-table, so skipping or reordering will leave the schema inconsistent. They create the tables, RLS, RPC functions,
-triggers, Realtime publications, and the private Storage buckets.
+Editor** and run the migration files in `supabase/migrations/` **in order** (`0001` → `0020`). Apply them all in
+order — later migrations redefine earlier functions (e.g. `book_ride`, `respond_offer`, `reject_surcharge`,
+`cancel_accepted_ride`) and **`0008` drops** `profiles.credits` + the `transactions` table, so skipping or reordering
+will leave the schema inconsistent. They create the tables, RLS, RPC functions, triggers, Realtime publications, and
+the private Storage buckets. The later batch adds ride **destination** (`0014`), a driver-proposed **fare** + min-fare
+gate (`0015`/`0017`), the 2-minute offer timeout (`0016`), **decline/cancel reasons** (`0018`/`0019`), and
+**single-active-session** enforcement (`0020`).
 > Note: applying **`0011`** gates `driver_go_online` behind an **approved** `driver_applications` row — existing
 > drivers can't go online until approved in `/admin`. Apply it when you're ready for that gate, not mid-test.
 

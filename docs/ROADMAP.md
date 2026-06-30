@@ -19,7 +19,10 @@ built (`0008`–`0010`): per-ride credits retired, access gated, manual GCash re
 >    is the headline launch blocker; plus the RLS/RPC audit, rate-limiting, and secret hygiene — including
 >    **rotating the VAPID keypair + `WEBHOOK_SECRET`** generated during setup (see Security below).
 >
-> Everything through driver verification, web-push ride alerts, and the pickup surcharge is built (migrations `0001`–`0013`). Open items are tracked in **🔲 Remaining**.
+> Everything through driver verification and web-push ride alerts is built, plus ride **destination** (`0014`), a
+> mandatory driver-proposed **cash fare** with commuter approval (`0015`/`0017`), 2-minute offer/approval timeouts
+> (`0016`), **decline/cancel reasons** (`0018`/`0019`), and **single-active-session** enforcement (`0020`) — migrations
+> `0001`–`0020`. Open items are tracked in **🔲 Remaining**. (`0014`–`0020` need applying on the live project.)
 
 ---
 
