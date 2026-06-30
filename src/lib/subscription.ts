@@ -32,8 +32,9 @@ export interface AccessState {
   daysLeft: number | null
 }
 
-/** Derive the commuter/driver access state from their profile. */
-export function accessState(profile: Profile | null): AccessState {
+/** Derive the commuter/driver access state from their profile. Only reads
+ *  `subscription_until`, so a partial (e.g. an admin roster row) is accepted. */
+export function accessState(profile: Pick<Profile, 'subscription_until'> | null): AccessState {
   if (!profile?.subscription_until) {
     return { hasAccess: false, active: false, inGrace: false, until: null, daysLeft: null }
   }

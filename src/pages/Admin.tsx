@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAdminRenewals, type PendingRenewal } from '../hooks/useAdminRenewals'
 import { useAdminDriverApplications, type PendingApplication } from '../hooks/useAdminDriverApplications'
 import { useRideStats, type StatsRange } from '../hooks/useRideStats'
+import { AdminDriversSection } from '../components/AdminDriversSection'
+import { AdminCommutersSection } from '../components/AdminCommutersSection'
 import { Loading, EmptyState, ErrorState } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { SUBSCRIPTION_PRICE } from '../lib/subscription'
@@ -18,6 +20,10 @@ export default function Admin() {
 
       {/* Reports */}
       <ReportsSection />
+
+      {/* Driver & commuter rosters */}
+      <AdminDriversSection />
+      <AdminCommutersSection />
 
       {/* Driver verification */}
       <section className="flex flex-col gap-2">
