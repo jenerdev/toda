@@ -22,8 +22,8 @@ export interface DriverLocationPublish {
 }
 
 /**
- * While enabled (driver is on a trip), stream the device's GPS to
- * driver_states via the update_driver_location RPC. Grabs an immediate fix and
+ * While enabled (driver is on a trip), stream the device's GPS to the private
+ * driver_locations table via the update_driver_location RPC. Grabs an immediate fix and
  * then watches for movement, so the commuter sees the driver in near real time.
  * Returns a status so the UI can tell the driver whether sharing is working,
  * plus the latest coords so the driver's own map can plot them.

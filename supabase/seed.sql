@@ -87,10 +87,14 @@ begin
          set is_online    = true,
              availability  = 'available',
              queued_at     = now(),
-             last_lat      = r.lat,
-             last_lng      = r.lng,
              updated_at    = now()
        where driver_id = r.id;
+
+      -- Live location lives in its own participant-scoped table now (0027).
+      insert into public.driver_locations (driver_id, lat, lng, updated_at)
+      values (r.id, r.lat, r.lng, now())
+      on conflict (driver_id) do update
+        set lat = excluded.lat, lng = excluded.lng, updated_at = excluded.updated_at;
     end if;
   end loop;
 end $$;

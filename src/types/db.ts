@@ -42,8 +42,15 @@ export interface DriverState {
   is_online: boolean
   availability: Availability
   queued_at: string | null
-  last_lat: number | null
-  last_lng: number | null
+  updated_at: string
+}
+
+// Private live GPS, split out of driver_states (0027) so participant-scoped RLS
+// can keep a driver's coordinates from leaking to unrelated users.
+export interface DriverLocationRow {
+  driver_id: string
+  lat: number | null
+  lng: number | null
   updated_at: string
 }
 

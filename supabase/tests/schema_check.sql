@@ -53,7 +53,12 @@ with checks(migration, object, present) as (
       not has_table_privilege('authenticated','public.driver_states','UPDATE')),
    ('0026 rls hardening',   'driver_states_update_own policy dropped',
       not exists(select 1 from pg_policies
-                 where schemaname='public' and tablename='driver_states' and policyname='driver_states_update_own'))
+                 where schemaname='public' and tablename='driver_states' and policyname='driver_states_update_own')),
+
+   ('0027 location privacy','driver_locations table',     to_regclass('public.driver_locations') is not null),
+   ('0027 location privacy','driver_states.last_lat dropped',
+      not exists(select 1 from information_schema.columns
+                 where table_schema='public' and table_name='driver_states' and column_name='last_lat'))
 )
 select migration, object,
        case when present then '✅' else '❌ MISSING' end as status

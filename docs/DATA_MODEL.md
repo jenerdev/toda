@@ -48,9 +48,14 @@ Live state for drivers; drives the queue.
 | `is_online` | `bool` | default `false` |
 | `availability` | `text` | `'available'` \| `'on_trip'` \| `'offline'` |
 | `queued_at` | `timestamptz` | **FIFO key**; set to `now()` on go-online and on re-queue |
-| `last_lat` | `double precision` | optional, last known position |
-| `last_lng` | `double precision` | optional |
 | `updated_at` | `timestamptz` | **liveness/heartbeat key** — bumped on go-online, location updates, and the `driver_heartbeat()` ping. Dispatch ignores drivers stale > 60s (`0007`). |
+
+> **Live location** moved out of `driver_states` into its own `driver_locations`
+> table (`driver_id` PK, `lat`, `lng`, `updated_at`) in `0027`. `driver_states`
+> is broadly readable (the queue needs it), and RLS is row-level — so keeping GPS
+> here would expose every driver's coordinates to all users (incl. over Realtime).
+> `driver_locations` has participant-scoped RLS: only the driver and the commuter
+> on that driver's **active** ride can read it.
 
 **Queue query** (next driver to offer):
 ```sql
@@ -109,8 +114,9 @@ In-ride chat between the two participants.
 | `body` | `text` | 1–1000 chars |
 | `created_at` | `timestamptz` | |
 
-> **Live driver location** reuses `driver_states.last_lat/last_lng`: while on a trip the driver streams GPS via the
+> **Live driver location** lives in `driver_locations` (`0027`): while on a trip the driver streams GPS via the
 > `update_driver_location` RPC, and the commuter reads/subscribes to that row (Realtime) to render the moving marker.
+> Participant-scoped RLS keeps a driver's coordinates visible only to that driver and the commuter on their active ride.
 
 ### `renewals` _(subscription billing — `0010`; see [`MONETIZATION.md`](MONETIZATION.md))_
 One row per manual GCash renewal submission, reviewed by an admin.

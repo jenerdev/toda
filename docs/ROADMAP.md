@@ -201,9 +201,10 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   column grant for self-editing your display name), so the SECURITY DEFINER RPCs are the only write path.
   Forged-JWT denial checks: [`supabase/tests/rls_audit.sql`](../supabase/tests/rls_audit.sql) (run in the SQL
   editor; wire into CI once test infra exists). *(Credits/transactions are gone as of `0008`.)*
-  **Follow-up noted:** `driver_states_select_all` exposes every driver's live `last_lat`/`last_lng` to any
-  authenticated user; move live-location reads behind a participant-checked RPC (today `useDriverLocation` reads the
-  row directly) to fix the location-privacy leak.
+  **Follow-up — ✅ fixed (`0027`):** live driver GPS was readable by any authenticated user (and streamed over
+  Realtime) because it lived in the broadly-readable `driver_states`. Moved into a separate `driver_locations` table
+  with participant-scoped RLS (only the driver + the commuter on that driver's active ride can read it), and dropped
+  `driver_states.last_lat/last_lng`.
 - **Subscription / dispatch tampering.** Re-check all access and state transitions server-side inside the RPCs
   (already the pattern — keep it): no extending your own `subscription_until`, no self-approving a renewal
   (`review_renewal` checks `is_admin()` inside), no reusing a GCash ref (UNIQUE), no accepting a ride you weren't

@@ -8,7 +8,14 @@ export interface DriverLocation {
   updatedAt: string | null
 }
 
-/** The assigned driver's live coordinates, kept fresh via Realtime on driver_states. */
+/**
+ * The assigned driver's live coordinates, kept fresh via Realtime.
+ *
+ * Reads the private `driver_locations` table (0027): its participant-scoped RLS
+ * returns the row only to the driver and to the commuter on that driver's active
+ * ride, so a driver's GPS is never exposed to unrelated users — over query OR
+ * Realtime. driver_states no longer holds location.
+ */
 export function useDriverLocation(driverId: string | null | undefined) {
   const qc = useQueryClient()
 
@@ -19,14 +26,14 @@ export function useDriverLocation(driverId: string | null | undefined) {
     refetchInterval: 5_000,
     queryFn: async (): Promise<DriverLocation> => {
       const { data, error } = await supabase
-        .from('driver_states')
-        .select('last_lat, last_lng, updated_at')
+        .from('driver_locations')
+        .select('lat, lng, updated_at')
         .eq('driver_id', driverId!)
         .maybeSingle()
       if (error) throw error
       return {
-        lat: data?.last_lat ?? null,
-        lng: data?.last_lng ?? null,
+        lat: data?.lat ?? null,
+        lng: data?.lng ?? null,
         updatedAt: data?.updated_at ?? null,
       }
     },
@@ -34,13 +41,13 @@ export function useDriverLocation(driverId: string | null | undefined) {
 
   useEffect(() => {
     if (!driverId) return
-    // No column filter — matches the proven queue pattern; we just refetch the
-    // one driver's row on any driver_states change.
+    // Scope the subscription to this one driver. RLS already restricts delivery
+    // to authorized participants, so this only narrows traffic, not access.
     const channel = supabase
       .channel(`driver_loc_${driverId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'driver_states' },
+        { event: '*', schema: 'public', table: 'driver_locations', filter: `driver_id=eq.${driverId}` },
         () => qc.invalidateQueries({ queryKey: ['driverLocation', driverId] }),
       )
       .subscribe()
