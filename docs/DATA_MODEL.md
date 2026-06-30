@@ -72,13 +72,16 @@ One row per booking request.
 | `pickup_lat` | `double precision` | |
 | `pickup_lng` | `double precision` | |
 | `pickup_address` | `text` | **free text typed by the commuter** (no geocoding); shown to an offered driver up-front |
+| `destination` | `text` null | **free text typed by the commuter** (no geocoding); where they're going, shown to the driver up-front so they know the trip. Required for new bookings (UI + `book_ride` enforce non-empty); nullable for pre-`0014` rows. |
 | `status` | `text` | `searching` \| `accepted` \| `enroute` \| `completed` \| `cancelled` \| `no_drivers` |
 | `created_at` | `timestamptz` | |
 | `accepted_at` | `timestamptz` null | |
 | `completed_at` | `timestamptz` null | |
+| `fare` | `int` | agreed **trip fare** (₱) for pickup → destination, 0 unless the driver proposed one and the commuter approved (`0015`). Cash — the app only records it. |
 | `surcharge` | `int` | agreed **pickup surcharge** (₱), 0 unless the driver requested one and the commuter approved (`0013`). Paid in cash — the app only records it. |
-| `pending_surcharge` | `int` null | transient: amount a driver is requesting, awaiting the commuter's approval (cleared on approve/reject/cancel) |
-| `pending_driver_id` | `uuid` null | transient: the driver holding the ride while the surcharge is pending |
+| `pending_fare` | `int` null | transient: trip fare a driver is proposing, awaiting the commuter's approval (cleared on approve/reject/cancel) (`0015`) |
+| `pending_surcharge` | `int` null | transient: surcharge a driver is requesting, awaiting the commuter's approval (cleared on approve/reject/cancel) |
+| `pending_driver_id` | `uuid` null | transient: the driver holding the ride while the fare/surcharge is pending |
 
 ### `ride_offers`
 The dispatch sequence — one row per (ride, driver) offer.
@@ -88,7 +91,7 @@ The dispatch sequence — one row per (ride, driver) offer.
 | `id` | `uuid` PK | |
 | `ride_id` | `uuid` | FK → `rides.id` |
 | `driver_id` | `uuid` | FK → `profiles.id` |
-| `status` | `text` | `pending` \| `accepted` \| `declined` \| `expired` \| `awaiting_approval` (held while the commuter decides on a requested surcharge, `0013`) |
+| `status` | `text` | `pending` \| `accepted` \| `declined` \| `expired` \| `awaiting_approval` (held while the commuter decides on a proposed fare/surcharge, `0013`/`0015`) |
 | `offered_at` | `timestamptz` | default `now()` (timeout sweep uses this) |
 | `responded_at` | `timestamptz` null | |
 
@@ -196,8 +199,8 @@ RLS is **enabled on every table**. Policies (enforced by `auth.uid()`):
 | `push_subscriptions` | own rows (`user_id = uid`) | own rows (`user_id = uid`) — insert/update/delete directly (client manages its own device subscriptions). The `notify-driver` Edge Function reads any driver's rows via the **service role**. |
 
 **Trusted writes** (`subscription_until`, `is_admin`, queue ordering, ride status transitions, renewal status) happen
-exclusively in **Postgres `SECURITY DEFINER` functions** — `book_ride`, `respond_offer` (now takes an optional
-pickup surcharge), `approve_surcharge`/`reject_surcharge` (commuter decides on a requested surcharge), `cancel_ride`,
+exclusively in **Postgres `SECURITY DEFINER` functions** — `book_ride`, `respond_offer` (takes an optional trip fare
++ pickup surcharge), `approve_surcharge`/`reject_surcharge` (commuter decides on the proposed fare/surcharge), `cancel_ride`,
 `cancel_accepted_ride`, `complete_ride`, `get_counterpart`, `expire_stale_offers`, `_offer_to_next_driver`,
 `submit_renewal`, `review_renewal`, `submit_driver_application`, `review_driver`, the
 `has_active_access()`/`is_admin()` helpers, plus `driver_go_online`/`driver_go_offline`, `driver_heartbeat`,

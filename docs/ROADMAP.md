@@ -41,13 +41,13 @@ anonymized queue list + "you're #N" via Realtime on `driver_states` (`0002_drive
 driver offline.
 
 ## ✅ Phase 4 — Commuter booking
-Leaflet + OSM map. **Pickup address is a free-text field** (what the driver sees); the map **pins current-location
+Leaflet + OSM map. **Pickup address and destination are free-text fields** (both shown to the driver — destination added in `0014`); the map **pins current-location
 coordinates** for live tracking. Auto-pins on load if location was already granted; "use my current location" button.
 > Changed from the original Nominatim search/typeahead at the user's request — geocoding removed entirely.
 
 ## ✅ Phase 5 — Dispatch & handshake
 `book_ride`, `respond_offer`, `cancel_ride`, `get_counterpart`, `expire_stale_offers`, internal
-`_offer_to_next_driver` (`0003_dispatch.sql`). Driver gets a realtime offer card with a 30s countdown
+`_offer_to_next_driver` (`0003_dispatch.sql`). Driver gets a realtime offer card with a 2-minute countdown
 (auto-declines → next driver); commuter sees `searching → accepted`; no-driver and cancel paths handled.
 > Built as **Postgres SECURITY DEFINER RPCs**, not Edge Functions (no CLI/Docker; atomic; same trust boundary).
 
@@ -135,12 +135,15 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   ("~450 m from you · ~2 min") so the driver can judge the pickup before accepting. Throttled (~per 100 m of driver
   movement) and **falls back to a straight line + great-circle distance** when the demo endpoint is unavailable.
   ⚠️ OSRM demo is best-effort; a keyed routing provider would be the upgrade for production.
-- ✅ **Distance pickup surcharge (`0013`)** — on a far offer (**≥1 km**) the driver can request +₱0/5/10/15/20; the
-  commuter must **approve** before the ride proceeds, else it's offered to the next driver. Handshake via
-  `respond_offer(…, p_surcharge)` → offer `awaiting_approval` + `rides.pending_*` → `approve_surcharge`/`reject_surcharge`
-  (`OfferCard` selector + `SurchargeApprovalPanel`). Framed as a **relay-only** surcharge — money stays **cash**, the
-  app only records the agreed amount (`rides.surcharge`). ⚠️ Fare-relay/TODA caveat in [`LEGAL.md`](LEGAL.md); the
-  ≥1 km gate is client-side (server caps the amount; commuter approval is the guard).
+- ✅ **Driver-proposed fare + pickup surcharge (`0013`, `0015`)** — before accepting, the driver can propose a
+  **trip fare** (pickup → destination; chips ₱0/20/30/40/50 + **+10**, up to ₱1000) and, on a pickup **≥200 m** away
+  (was ≥1 km in `0013`, tightened to 200 m in `0015`), a **distance surcharge** (chips +₱0/5/10/15 + **+5**, up to ₱50).
+  If either is > 0 the commuter must **approve the breakdown** before the ride proceeds, else it's offered to the next
+  driver. Handshake via `respond_offer(…, p_surcharge, p_fare)` → offer `awaiting_approval` + `rides.pending_*` →
+  `approve_surcharge`/`reject_surcharge` (`OfferCard` selectors + `FareApprovalPanel`; `FareBreakdown` shows the
+  receipt everywhere). Framed as **relay-only** — money stays **cash**, the app only records the agreed amounts
+  (`rides.fare`/`rides.surcharge`). ⚠️ Fare-relay/TODA caveat in [`LEGAL.md`](LEGAL.md); the distance gate is
+  client-side (server caps the amounts; commuter approval is the guard).
 - ✅ **Ride-outcome confirmation** — `useRideOutcome` + `RideOutcomeToast`: a dismissible modal shown to **both** the
   commuter and the driver when a ride ends — **completed** ("Ride/Trip completed!", cash-fare reminder) **or
   cancelled** ("back in the queue" for the driver, "book another ride" for the commuter). Driven by the realtime
@@ -260,6 +263,9 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0011_driver_verification.sql` | `driver_applications` table + RLS; `submit_driver_application`/`review_driver`; `driver_go_online` gated on `approved`; private `driver-docs` Storage bucket |
 | `0012_push_subscriptions.sql` | `push_subscriptions` table + RLS (user manages own); read by the `notify-driver` Edge Function (service role) to send driver ride-offer Web Push on `ride_offers` insert |
 | `0013_pickup_surcharge.sql` | `rides.surcharge`/`pending_surcharge`/`pending_driver_id` + `ride_offers` `awaiting_approval` status; `respond_offer` takes a surcharge; new `approve_surcharge`/`reject_surcharge`; dispatch skips drivers holding a pending/awaiting offer |
+| `0014_destination.sql` | `rides.destination` (free text); `book_ride` takes `p_destination` (required, non-empty) and the old 3-arg signature is dropped; shown to the driver in the offer/trip |
+| `0015_trip_fare.sql` | `rides.fare`/`pending_fare`; `respond_offer` takes `p_fare` (drops the 3-arg version); `approve_surcharge`/`reject_surcharge`/`cancel_ride` handle the fare alongside the surcharge; surcharge gate tightened 1 km → 200 m (client-side) |
+| `0016_offer_timeout.sql` | Rider-pickup time limit 30 s → **2 min**: `expire_stale_offers` sweep interval bumped to match the client `OFFER_TIMEOUT_SECONDS` (120) |
 
 ---
 
@@ -269,7 +275,7 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 |------|----------|
 | Happy path | offer → accept → live map + chat → complete (**no credits touched**); driver re-queued at end |
 | Decline | first driver declines → second driver offered |
-| Timeout | offered driver idle 30s → offer expires → next driver offered |
+| Timeout | offered driver idle 2 min → offer expires → next driver offered |
 | No drivers | book with none online → ride = `no_drivers` |
 | Pickup shown up-front | driver sees pickup **address + pinned map in the offer**, before accepting (changed: no longer gated behind accept) |
 | Sign-out | driver signs out → leaves the queue |

@@ -51,8 +51,8 @@ to the driver outside the app.)
 
 | Component | Responsibility |
 |-----------|----------------|
-| **Commuter PWA** | Type pickup address + pin current location, call `book_ride` (gated on an active subscription), watch the ride live, see the driver's live location + chat after accept, call `complete_ride` / `cancel_accepted_ride`. Renew via `RenewPanel` when access lapses. On a `no_drivers` result, arm a watch (`useAvailableDrivers`) that alerts + offers one-tap re-book when a driver comes online. |
-| **Driver PWA** | Toggle online (join/leave queue; gated on an active subscription), heartbeat while online, receive offers **with the pickup address + map up-front**, Accept/Decline (`respond_offer`), chat + stream GPS while on a trip (and see their **own** GPS on the trip map), `complete_ride` / `cancel_accepted_ride`. Opt into **ride-offer push** so offers arrive even when the app is closed. |
+| **Commuter PWA** | Type pickup address + destination + pin current location, call `book_ride` (gated on an active subscription), watch the ride live, see the driver's live location + chat after accept, call `complete_ride` / `cancel_accepted_ride`. Renew via `RenewPanel` when access lapses. On a `no_drivers` result, arm a watch (`useAvailableDrivers`) that alerts + offers one-tap re-book when a driver comes online. |
+| **Driver PWA** | Toggle online (join/leave queue; gated on an active subscription), heartbeat while online, receive offers **with the pickup address + destination + map up-front**, Accept/Decline (`respond_offer`), chat + stream GPS while on a trip (and see their **own** GPS on the trip map), `complete_ride` / `cancel_accepted_ride`. Opt into **ride-offer push** so offers arrive even when the app is closed. |
 | **Supabase Auth** | Identity (phone → synthetic email); `auth.uid()` powers RLS. |
 | **Postgres + RLS** | Source of truth. Users see only rows they're entitled to. |
 | **Supabase Storage** | Private `renewal-screenshots` bucket (per-user folders); the admin views proof via short-lived **signed URLs**. |
@@ -109,7 +109,7 @@ sequenceDiagram
     EF->>DB: INSERT rides (status='searching')
     EF->>DB: pick first available driver (online, available, fresh < 60s) -> INSERT ride_offers (pending) for D1
     DB-->>D1: Realtime: new pending offer (incl. pickup address + map, shown up-front)
-    Note over D1: 20-30s countdown
+    Note over D1: 2-minute countdown
 
     alt D1 accepts
         D1->>EF: respond_offer(accept)
@@ -132,7 +132,7 @@ sequenceDiagram
 
 ### Offer timeout & next-driver fallback
 
-- **Primary UX:** the driver's offer card shows a **20–30s countdown**. Letting it hit zero (or tapping Decline)
+- **Primary UX:** the driver's offer card shows a **2-minute countdown**. Letting it hit zero (or tapping Decline)
   calls `respond_offer` with `decline`, which marks the offer and dispatches the next driver.
 - **Safety net:** a `pg_cron` job (or an expiry check inside `respond_offer`) sweeps for `pending` offers older than
   the timeout and expires them + advances the queue — so a driver who closes the tab can't stall a ride forever.
@@ -141,15 +141,20 @@ sequenceDiagram
   (reusing the pinned pickup) the moment a driver comes online — in-app via the Notifications API; for a closed app
   this is the job of the ride-offer Web Push (below).
 
-### Pickup-surcharge handshake (`0013`)
-On a **far** offer (≥1 km, gated client-side via the offer card's computed distance) the driver may attach an optional
-**distance surcharge** (₱0/5/10/15/20). The handshake adds one intermediate state without a new ride status:
-- Driver accepts with a surcharge → `respond_offer(…, p_surcharge)` puts the offer in **`awaiting_approval`** and stamps
-  `rides.pending_surcharge` + `pending_driver_id` (the ride stays `searching`, **held** to that driver — dispatch skips
-  drivers holding a `pending`/`awaiting_approval` offer, so no one else is offered).
-- The commuter reads the request off **their own `rides` row** (no new RLS) and calls **`approve_surcharge`** (→ ride
-  `accepted`, `surcharge` recorded, driver `on_trip`) or **`reject_surcharge`** (→ offer `declined`, `_offer_to_next_driver`).
-- Timeout is a client 30 s countdown on each side; the money is still **cash** — the app only relays/records the amount.
+### Fare/surcharge approval handshake (`0013`, `0015`)
+Before accepting, the driver may propose a **trip fare** (pickup → destination; chips ₱0/20/30/40/50 + **+10**, up to
+₱1000) and, on a pickup **≥200 m** away (gated client-side via the offer card's computed distance; was ≥1 km in `0013`,
+tightened to 200 m in `0015`), a **distance surcharge** (chips ₱0/5/10/15 + **+5**, up to ₱50; bounds enforced
+server-side). If either is > 0 the handshake adds one intermediate state without a new ride status:
+- Driver accepts with a fare/surcharge → `respond_offer(…, p_surcharge, p_fare)` puts the offer in **`awaiting_approval`**
+  and stamps `rides.pending_fare`/`pending_surcharge` + `pending_driver_id` (the ride stays `searching`, **held** to that
+  driver — dispatch skips drivers holding a `pending`/`awaiting_approval` offer, so no one else is offered).
+- The commuter reads the request off **their own `rides` row** (no new RLS), sees the **breakdown** (`FareBreakdown`),
+  and calls **`approve_surcharge`** (→ ride `accepted`, `fare`+`surcharge` recorded, driver `on_trip`) or
+  **`reject_surcharge`** (→ offer `declined`, `_offer_to_next_driver`).
+- Both fare/surcharge 0 = instant accept (fare agreed in person). The offer has a **2-minute** client countdown
+  (`OFFER_TIMEOUT_SECONDS`); the rider's fare approval has its own **2-minute** countdown. The money is still **cash** —
+  the app only relays/records the amounts.
 
 ## Fares & money
 
@@ -158,10 +163,11 @@ never sees the amount. (Historical note: an early MVP charged a 5+5 **credit** f
 `transactions` ledger were **removed in `0008`** when the subscription model landed.) Revenue is the subscription
 below — never a per-ride charge.
 
-> **One exception to record: the optional pickup surcharge (`0013`).** On a far pickup the driver may request a
-> distance surcharge that the commuter approves; the app **records the agreed amount** (`rides.surcharge`) and relays
-> the request, but the money is **still cash to the driver** — no money moves through the app, so this stays clear of
-> BSP e-money rules. It does, however, make the app a fare-*relay* (not just dispatch), which has a
+> **One exception to record: driver-proposed amounts (`0013`, `0015`).** Before accepting, the driver may propose a
+> **trip fare** (pickup → destination) and/or a **pickup surcharge** that the commuter approves; the app **records the
+> agreed amounts** (`rides.fare`/`rides.surcharge`) and relays the proposal, but the money is **still cash to the
+> driver** — no money moves through the app, so this stays clear of BSP e-money rules. It does, however, make the app a
+> fare-*relay* (not just dispatch), which has a
 > fare-regulation/TODA caveat — see [`LEGAL.md`](LEGAL.md).
 
 ## Subscriptions & access gating ✅ _(built `0008`–`0010` — see [`MONETIZATION.md`](MONETIZATION.md))_

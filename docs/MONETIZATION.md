@@ -39,10 +39,11 @@ avoid), the paid balance must be **closed-loop**:
 
 The single line not to cross: **app balance must never be how the driver gets paid.**
 
-> **Note — the optional pickup surcharge (`0013`) is not app revenue.** On a far pickup a driver may request a small
-> distance surcharge that the commuter approves; it's paid **in cash to the driver, outside the app** (the app only
-> records the agreed amount). It earns MotoQueue nothing and no money flows through the app, so the closed-loop rule
-> above is unaffected. Its only sensitivity is the fare-relay/TODA angle — see [`LEGAL.md`](LEGAL.md).
+> **Note — the driver-proposed trip fare + pickup surcharge (`0013`, `0015`) are not app revenue.** Before accepting, a
+> driver may propose a trip fare (and, on a far pickup, a distance surcharge) that the commuter approves; both are paid
+> **in cash to the driver, outside the app** (the app only records the agreed amounts). They earn MotoQueue nothing and
+> no money flows through the app, so the closed-loop rule above is unaffected. Their only sensitivity is the
+> fare-relay/TODA angle — see [`LEGAL.md`](LEGAL.md).
 
 ## Payment flow (MVP — manual GCash)
 

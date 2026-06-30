@@ -81,20 +81,30 @@ in-place **Renew** flow (shown when access lapses).
 ├──────────────────────────┤
 │  Pickup address          │
 │  [ Blk/Lot, st, landmark]│  ← free text, shown to driver
+│  Destination             │
+│  [ Where are you going? ]│  ← free text, shown to driver
+│  [Alfamart][Brgy Hall]…  │  ← quick-pick chips fill the field
 │      [   MAP w/ pin  ]   │  ← your live-tracking location
 │        📍 (draggable)     │
 ├──────────────────────────┤
-│  To find a driver:       │  ← checklist; hides once both ✓
+│  To find a driver:       │  ← checklist; hides once all ✓
 │   ✓ Pin your location     │
 │   ○ Enter pickup address   │
+│   ○ Enter destination      │
 │  [ 📍 Pin my current loc.]│  ← step 1 (then becomes "Find me a driver")
 └──────────────────────────┘
 ```
 - **Pinning your current GPS location is required** before booking — a driver can't be matched without it. The flow is
   **two-step on one button**: first **"📍 Pin my current location"** (captures GPS), then it switches to
-  **"Find me a driver"** (still needs a pickup address). The old standalone "Use my current location" button was
-  removed. A **"To find a driver:"** checklist shows what's left (pin location / enter address) and disappears once
-  both are done. After pinning, the pin is draggable to fine-tune.
+  **"Find me a driver"** (still needs a pickup address **and a destination**). The old standalone "Use my current
+  location" button was removed. A **"To find a driver:"** checklist shows what's left (pin location / enter address /
+  enter destination) and disappears once all three are done. After pinning, the pin is draggable to fine-tune.
+- **Destination quick picks:** a row of one-tap chips (common nearby spots — `DESTINATION_QUICK_PICKS` in
+  `CommuterHome`, e.g. Alfamart, Barangay Hall, Dear Joe, Balen Magalang) fills the destination field; the chip for
+  the current value highlights, and the text stays freely editable. Subdivision-specific — update for the launch area.
+- **Remembered + clearable inputs:** the pickup address and destination are **persisted to `localStorage`**
+  (`mq.pickup_address` / `mq.destination`, guarded against private-mode throws) so the next session pre-fills them; each
+  field has a small **✕ clear button** (shown only when non-empty) to wipe it in one tap.
 - If the subscription has lapsed, the whole booking UI is **replaced by the Renew panel** (booking is also gated
   server-side). Busy labels: "Locating…" then "Finding a driver…".
 
@@ -161,47 +171,70 @@ fully-closed app would need Web Push — see ROADMAP.)
 - Offline state: big **[ Go online ]** button, "You're offline — go online to receive rides." If the subscription has
   lapsed, the **Renew panel** appears above the toggle and **Go online is disabled**.
 
-### Offer Card (driver) — appears via realtime
+### Offer Card (driver) — appears via realtime, as a focused overlay
 ```
 ┌──────────────────────────┐
 │   🔔 New ride request!    │
-│   Pickup: 12 Acacia St    │  ← address shown up-front
+│ ◦ PICKUP                  │  ← small muted label…
+│   12 Acacia St            │  ← …over the bold value (origin dot)
+│ ● GOING TO                │
+│   SM Mall                 │  ← destination (filled red dot)
 │   📍 ~1.4 km from you·5min │  ← estimated range to the pickup
 │   [ MAP: 🏍️ you ⟶ 📍 pickup]│  ← both points + red route line
-│   Far pickup — surcharge?  │  ← only when ≥1 km
-│ [None][₱5][₱10][₱15][+5]   │  ← preset chips; "+5" bumps current (max ₱50)
-│   ⏱ 0:23                  │  ← countdown
-│ [Decline][Request +₱10 &…] │
+│   Trip fare to destination │  ← always proposable
+│ [None][₱20][₱30][₱40][+10] │  ← fare chips; "+10" bumps current (max ₱1000)
+│   Pickup surcharge?        │  ← only when ≥200 m
+│ [None][₱5][₱10][₱15][+5]   │  ← surcharge chips; "+5" bumps current (max ₱50)
+│  Trip fare ₱30 · +₱10 = ₱40│  ← live breakdown (FareBreakdown)
+│   ⏱ 1:48                  │  ← countdown (in the header row; 2:00 limit)
+│ [        Decline        ] │  ← full-width, stacked
+│ [  Request ₱40 & accept  ] │
 └──────────────────────────┘
 ```
-- The driver sees the **pickup address + a map before accepting** (the old "hidden until accept" gate was
+- The driver sees the **pickup address, the destination, + a map before accepting** (the old "hidden until accept" gate was
   removed when per-ride credits went away — no commitment cost to seeing it). The map shows **both the driver's
   current location and the pickup** with the **route line** between them, plus an **estimated distance/ETA** ("~1.4 km
   from you · ~5 min", from a one-shot GPS fix + `useRoute`), so the driver can judge the pickup's distance before
   accepting. Falls back gracefully (pickup-only) if location permission isn't granted.
-- **Distance surcharge (≥1 km only):** preset chips **[None] [₱5] [₱10] [₱15]** plus a **[+5]** chip that bumps the
-  current amount by ₱5 (capped at ₱50), with the note *"Far pickup — you can request a distance surcharge, paid to you
-  in cash. MotoQueue doesn't set fares."* If the driver picks an amount, the
-  Accept button reads **"Request +₱X & accept"** and the card switches to a **"Waiting for rider…"** state until the
-  commuter decides. ₱0 = today's instant accept.
+- **Trip fare (always):** preset chips **[None] [₱20] [₱30] [₱40]** plus a **[+10]** chip (capped at ₱1000) for the
+  fare from pickup → destination. **Distance surcharge (only when the pickup is ≥200 m away):** chips **[None] [₱5]
+  [₱10] [₱15]** plus **[+5]** (capped at ₱50). For both, when the amount climbs past the top chip via **[+N]** that
+  chip **stays highlighted** (the highlighted chip is the largest preset ≤ the current amount). A live **`FareBreakdown`**
+  (Trip fare + Pickup surcharge → Total) shows what the rider will be asked to approve. If the **total > 0** the Accept
+  button reads **"Request ₱X & accept"** and the card switches to a **"Waiting for rider…"** state (with the breakdown)
+  until the commuter decides; **total 0 = instant accept** (fare agreed in person). Buttons are stacked full-width.
+- **Presentation:** the card takes over the screen as a **focused overlay** (dimmed backdrop, centered, above the
+  map/queue) — *incoming-call style* — so the driver commits to the 2-minute decision instead of half-noticing it inline.
+  The **backdrop is intentionally not tap-to-dismiss** (that would silently decline a paying ride); the only exits are
+  **Decline**, **Accept**, or the timeout (which auto-declines → next driver). Scrolls (`max-h-[90vh]`) so the map +
+  chips never clip on small phones; the "Waiting for rider…" approval state stays in the overlay too.
 - On accept → switches to an "On trip" view with the commuter's contact + **[ Mark complete ]**.
-- On decline/timeout → returns to queue; the offer silently moves to the next driver.
+- On decline/timeout → returns to queue; the offer moves to the next driver. On a **timeout** (auto-decline) the
+  driver gets a single-button **"Ride missed"** notice (`NoticeModal`, ⏱️) naming the pickup, so a too-slow tap isn't
+  a silent vanish; a **manual** decline shows nothing (they already know). Dismiss → back to the online/queue view.
+- If the driver proposed a fare and the **rider declines (or lets it lapse)** while in "Waiting for rider…", the offer
+  flips to `declined` and the driver gets a **"Fare not approved"** notice (`NoticeModal`, 🙅) naming the proposed
+  amount — detected via a Realtime watch on the driver's own offers (`awaiting_approval` → `declined`), so the waiting
+  card doesn't just vanish. Approval (→ `accepted`) instead opens the trip; no notice.
 
-### Surcharge approval (commuter) — appears in place of "Finding you a driver…"
+### Fare approval (commuter) — appears in place of "Finding you a driver…"
 ```
 ┌──────────────────────────┐
-│  Extra fare requested  ⏱30│
-│         +₱10              │
-│  Your driver requests an  │
-│  extra ₱10 for the        │
-│  distance… paid in cash.  │
+│  Fare for approval  ⏱2:00 │
+│  Your driver proposed     │
+│  this fare… paid in cash. │
+│  ┌──────────────────────┐ │
+│  │ Trip fare        ₱30 │ │  ← FareBreakdown receipt
+│  │ Pickup surcharge +₱10│ │
+│  │ Total (cash)     ₱40 │ │
+│  └──────────────────────┘ │
 │  [ Decline ] [ Approve ]  │
 └──────────────────────────┘
 ```
-- When a driver requests a surcharge, the commuter's `searching` view becomes this amber prompt (`SurchargeApprovalPanel`)
-  with a 30 s countdown. **Approve** → ride proceeds (`accepted`), the agreed amount shows on both sides during the trip
-  ("Agreed extra fare: +₱10, pay in cash") and in the completion confirmation. **Decline / timeout** → the ride is
-  offered to the next driver. Copy stresses the money is **cash to the driver** and the app doesn't set fares.
+- When a driver proposes a fare/surcharge, the commuter's `searching` view becomes this amber prompt (`FareApprovalPanel`)
+  with a 2-minute countdown and a **`FareBreakdown`** receipt. **Approve** → ride proceeds (`accepted`), the agreed breakdown
+  shows on both sides during the trip and in the completion confirmation. **Decline / timeout** → the ride is offered to
+  the next driver. Copy stresses the money is **cash to the driver** and the app doesn't set fares.
 
 ### On-trip / complete (driver)
 ```
@@ -307,12 +340,19 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   button's "Pin my current location" step, then can drag to fine-tune.
 - `QueueStatus` — anonymized queue **summary**: available-driver count + the driver's own position, with a distinct
   emerald **"You're next up"** state (live pulse) when first in line. *(Replaced the old per-driver `QueueList`.)*
-- `OfferCard` — countdown + accept/decline; **shows the pickup address + a pinned `PickupMap` up-front**.
+- `OfferCard` — countdown + accept/decline; **shows the pickup address, destination, + a route map up-front**, plus
+  the driver's **trip-fare** and (≥200 m) **pickup-surcharge** selectors with a live `FareBreakdown`.
+- `FareApprovalPanel` — commuter's amber prompt to approve/decline a driver's proposed fare/surcharge (30 s countdown);
+  shows the `FareBreakdown`. Replaced the old single-amount `SurchargeApprovalPanel`.
+- `FareBreakdown` — shared receipt: Trip fare + Pickup surcharge → Total (cash). Used by `OfferCard` (preview + waiting),
+  `FareApprovalPanel`, `RideStatusPanel`, and `TripPanel`. Renders nothing when the total is 0.
+- `RouteSummary` — shared **origin → destination** block: a small muted label over a bold value, hollow brand dot for
+  pickup + filled red dot for destination. Used by `OfferCard`, `TripPanel`, and `RideStatusPanel` so all three match.
 - `RideStatusPanel` — commuter's state machine (searching / on-the-way / no-drivers); embeds `LiveTrackMap` + `Chat`;
   Ride-complete + Cancel-ride actions. The no-drivers state renders `NoDriversPanel`.
 - `NoDriversPanel` — no-drivers screen: Try again **+** "Notify me when a driver's available" watch → "A driver is
   available! → Book now" (one-tap re-book) + a system notification (`useAvailableDrivers`).
-- `TripPanel` — driver's accepted-ride view; pickup address + `RouteMap` (own live location + pickup + road route) + `Chat` +
+- `TripPanel` — driver's accepted-ride view; pickup address + destination + `RouteMap` (own live location + pickup + road route) + `Chat` +
   location-sharing status (incl. a coarse-GPS / Precise-Location warning); complete + cancel-trip actions.
 - `RouteMap` — shared live map: a 🏍️ driver marker (when known) + a 📍 pickup marker, auto-fit to both, plus a
   **road-route polyline** + distance/ETA caption. Used by both the commuter (`LiveTrackMap`) and the driver
@@ -327,6 +367,12 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   recovery).
 - `RideOutcomeToast` — dismissible confirmation shown to **both** parties when a ride ends, **completed or cancelled**
   (`useRideOutcome`); celebratory for completion, neutral for cancellation; mounted app-wide, renders above the map.
+- `ConfirmDialog` — in-app confirmation modal (controlled `open` + confirm/cancel handlers) used before a
+  destructive action; replaces native `window.confirm` (unstyled, off-brand, suppressed by some mobile browsers).
+  Today it guards **cancel-accepted-ride** (commuter) and **cancel-trip** (driver); the destructive button is red.
+- `NoticeModal` — single-button **acknowledgement** modal (controlled `open`; optional emoji) for an FYI with no
+  choice to make — distinct from `ConfirmDialog`. Today it shows the driver's **"Ride missed"** timeout notice and the
+  **"Fare not approved"** notice when a rider declines a proposed fare.
 - `Spinner` / `Loading` / `EmptyState` / `ErrorState` (`States.tsx`) — shared state primitives: a consistent brand
   spinner, a quiet empty card, and a red **error card with a Try again** retry, used across Activity / Admin / the homes.
 - `RideAlertsToggle` — driver Web Push opt-in ("Enable ride alerts") so offers arrive with the app closed/locked
