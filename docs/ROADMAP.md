@@ -180,16 +180,30 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 > live in **Postgres (RLS + RPC design)** and **in front of Supabase (Cloudflare/edge)**, since there's no custom
 > API server to put middleware in.
 
-- **SQL injection.** App queries go through the Supabase client (parameterized) and RPC args are typed, so the
-  surface is the **SECURITY DEFINER functions** themselves. Audit every RPC: (1) pin `SET search_path = ''` (or an
-  explicit schema) on each `SECURITY DEFINER` function so a hijacked `search_path` can't shadow tables/functions;
-  (2) if any function builds dynamic SQL, use `format(... %I/%L ...)` / `quote_ident` / `quote_literal` — never
-  string concatenation; (3) keep all user input flowing in as **typed parameters**, never interpolated.
-- **Authorization / RLS audit (anti-hack core).** The anon key is *meant* to be public — **RLS is the real
-  boundary**. Verify: a commuter can't read another commuter's ride/messages; a non-admin can't read others'
-  profiles or `renewals`; no client can `UPDATE profiles.subscription_until`/`is_admin` or write `renewals.status`
-  directly (those mutate only via SECURITY DEFINER RPCs). Add a test that hits each table with a forged JWT and
-  expects denial. *(Credits/transactions are gone as of `0008`, so that surface no longer exists.)*
+- **SQL injection.** ✅ **Audited (`0025`).** App queries go through the Supabase client (parameterized) and RPC
+  args are typed, so the surface is the **SECURITY DEFINER functions** themselves. Findings: (1) every
+  `SECURITY DEFINER` function already pins `set search_path = public` (explicit schema) — none mutable; (2) **no
+  dynamic SQL exists** anywhere (no `EXECUTE '<sql>'`/`format()`/`quote_ident`/`quote_literal`/`dblink`) — every
+  statement is static parameterized SQL; (3) all user input flows in as **typed parameters** used as bound
+  variables, never interpolated (client realtime `filter:` strings interpolate only server-issued ids, never free
+  text). Hardening added in `0025`: **revoke `CREATE` on schema `public`** from `public`/`anon`/`authenticated`, so
+  no untrusted role can create a shadowing object — the only thing that made `search_path = public` weaker than
+  `''`. *(Optional future tightening: switch each function to `search_path = ''`; only worthwhile after verifying
+  every body is fully schema-qualified, and it adds nothing once CREATE-on-public is revoked.)*
+- **Authorization / RLS audit (anti-hack core).** ✅ **Audited & hardened (`0026`).** The anon key is *meant* to be
+  public — **RLS is the real boundary**. Read paths were already correct (a commuter can't read another's
+  ride/messages; non-admins can't read others' profiles/`renewals` — all scoped to own + admin). **Holes found &
+  closed:** Supabase grants full DML to `authenticated` by default with RLS as the only gate, and two own-row UPDATE
+  policies were far too broad — `profiles_update_own` let a user set their own `is_admin`/`subscription_until`/
+  `active_session_id` (admin takeover, free access, single-session bypass), and `driver_states_update_own` let a
+  driver hand-edit `queued_at` (FIFO queue jump). `0026` revokes direct DML from `anon`/`authenticated` on every
+  RPC-managed table (keeping only `messages` INSERT + `push_subscriptions`, and a single `profiles.full_name`
+  column grant for self-editing your display name), so the SECURITY DEFINER RPCs are the only write path.
+  Forged-JWT denial checks: [`supabase/tests/rls_audit.sql`](../supabase/tests/rls_audit.sql) (run in the SQL
+  editor; wire into CI once test infra exists). *(Credits/transactions are gone as of `0008`.)*
+  **Follow-up noted:** `driver_states_select_all` exposes every driver's live `last_lat`/`last_lng` to any
+  authenticated user; move live-location reads behind a participant-checked RPC (today `useDriverLocation` reads the
+  row directly) to fix the location-privacy leak.
 - **Subscription / dispatch tampering.** Re-check all access and state transitions server-side inside the RPCs
   (already the pattern — keep it): no extending your own `subscription_until`, no self-approving a renewal
   (`review_renewal` checks `is_admin()` inside), no reusing a GCash ref (UNIQUE), no accepting a ride you weren't
