@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthProvider'
 import { phoneToEmail, derivePassword, isValidPhone, normalizePhone, DEMO_OTP } from '../lib/phone'
 import type { Role } from '../types/db'
 import { ResendOtp } from '../components/ResendOtp'
+import { TermsModal } from '../components/TermsModal'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -17,6 +18,9 @@ export default function Signup() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Must agree to the Terms before a code can be sent.
+  const [agreed, setAgreed] = useState(false)
+  const [showTerms, setShowTerms] = useState(false)
 
   useEffect(() => {
     if (session) navigate('/', { replace: true })
@@ -31,6 +35,10 @@ export default function Signup() {
     }
     if (!isValidPhone(phone)) {
       setError('Please enter a valid phone number.')
+      return
+    }
+    if (!agreed) {
+      setError('Please agree to the Terms and Conditions to continue.')
       return
     }
     setStep('otp')
@@ -131,11 +139,32 @@ export default function Signup() {
             </span>
           </label>
 
+          <label className="mb-4 flex items-start gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-brand focus:ring-brand"
+            />
+            <span>
+              I agree to the{' '}
+              <button
+                type="button"
+                onClick={() => setShowTerms(true)}
+                className="font-medium text-brand underline"
+              >
+                Terms and Conditions
+              </button>
+              .
+            </span>
+          </label>
+
           {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
           <button
             type="submit"
-            className="w-full rounded-lg bg-brand py-2.5 font-semibold text-white transition hover:bg-brand-dark"
+            disabled={!agreed}
+            className="w-full rounded-lg bg-brand py-2.5 font-semibold text-white transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-60"
           >
             Send code
           </button>
@@ -194,6 +223,8 @@ export default function Signup() {
       <p className="mt-4 text-center text-sm text-gray-500">
         Already have an account? <Link className="text-brand underline" to="/login">Log in</Link>
       </p>
+
+      <TermsModal open={showTerms} onClose={() => setShowTerms(false)} />
     </div>
   )
 }

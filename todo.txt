@@ -6,18 +6,14 @@
 - bug on PWA. loading.. freeze. auto reload for a certain period?
 
 - advertisement ai video
-- on OTP on login/registration. please add. did not receieve a code. resend. add countdown for 2 mins. after 2 minutes can click the resend
 
 #BUG
  
- 
-- add notifications
-
 # Design/Architecture
 - final layout and UI design. UI/UX Improvement
 - data store age? expiration.
-- session expire
-- Terms and Conditions upon signup
+ 
+- 
 
 # admin
 - list of drivers - show count of online/offline -  can filter online/offline, 
