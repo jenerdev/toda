@@ -75,9 +75,11 @@ trip (`update_driver_location` RPC) and the commuter sees a **live map** of the 
   stale > 60s; `reap_stale_drivers()` can mark them offline. **Client wired:** `useDriverHeartbeat(isOnline)` pings
   `driver_heartbeat` immediately on going online + every 25s while online — this fixed the "driver online but **no
   drivers available**" bug (a freshly-online or idle driver was dropping out of dispatch after 60s).
-- **Cancel-after-accept.** ✅ `cancel_accepted_ride(ride_id)` cancels the ride and frees/re-queues the driver
+- **Cancel-after-accept.** ✅ `cancel_accepted_ride(ride_id, reason)` cancels the ride and frees/re-queues the driver
   (idempotent; **no refund — no money involved** since credits were retired). **Client wired:** a "Cancel ride"
-  button on the commuter's `RideStatusPanel` and a "Cancel trip" on the driver's `TripPanel`.
+  button on the commuter's `RideStatusPanel` and a "Cancel trip" on the driver's `TripPanel`, each opening a
+  `CancelReasonModal` with role-specific one-tap reasons (`0019`); the reason is shown to the other party in the
+  ride-outcome toast.
 
 ### Activity history — ✅ **done** (`/history`)
 Per-user **Activity** page (commuter + driver + admin), linked from the top bar. Two sections: **ride/trip history**
@@ -268,6 +270,7 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0016_offer_timeout.sql` | Rider-pickup time limit 30 s → **2 min**: `expire_stale_offers` sweep interval bumped to match the client `OFFER_TIMEOUT_SECONDS` (120) |
 | `0017_min_fare.sql` | Mandatory fare: `respond_offer` requires a proposed fare **≥ ₱20** on accept (no zero-fare/instant accept); scoped to the accept branch so decline is unaffected |
 | `0018_decline_reason.sql` | `ride_offers.decline_reason`; `reject_surcharge` takes an optional `p_reason` (drops the 1-arg version) and stores it on the declined offer → relayed to the driver |
+| `0019_cancel_reason.sql` | `rides.cancellation_reason`; `cancel_accepted_ride` takes an optional `p_reason` (drops the 1-arg version) and records it → shown to the other party in the outcome toast |
 
 ---
 

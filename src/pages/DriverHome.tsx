@@ -13,11 +13,20 @@ import { Loading, ErrorState } from '../components/States'
 import { OfferCard } from '../components/OfferCard'
 import { TripPanel } from '../components/TripPanel'
 import { RenewPanel } from '../components/RenewPanel'
-import { ConfirmDialog } from '../components/ConfirmDialog'
+import { CancelReasonModal } from '../components/CancelReasonModal'
 import { NoticeModal } from '../components/NoticeModal'
 import { DriverVerificationPanel } from '../components/DriverVerificationPanel'
 import { supabase } from '../lib/supabase'
 import { accessState } from '../lib/subscription'
+
+// One-tap reasons a driver can attach when cancelling an accepted trip.
+const DRIVER_CANCEL_REASONS = [
+  'Pickup location too far',
+  'Destination is too far',
+  "I don't know the destination",
+  'Agreed fare is too low',
+  'Cannot find the commuter',
+]
 
 export default function DriverHome() {
   const { user, profile } = useAuth()
@@ -138,11 +147,14 @@ export default function DriverHome() {
     respond('decline', auto)
   }
 
-  async function cancelTrip() {
+  async function cancelTrip(reason: string | null) {
     if (!activeRide) return
     setError(null)
     setBusy(true)
-    const { error } = await supabase.rpc('cancel_accepted_ride', { p_ride_id: activeRide.id })
+    const { error } = await supabase.rpc('cancel_accepted_ride', {
+      p_ride_id: activeRide.id,
+      p_reason: reason,
+    })
     setBusy(false)
     setConfirmingCancel(false)
     if (error) {
@@ -216,16 +228,14 @@ export default function DriverHome() {
         />
       )}
 
-      <ConfirmDialog
+      <CancelReasonModal
         open={confirmingCancel}
         title="Cancel this trip?"
-        message="You'll be returned to the queue and the rider will be notified."
+        reasons={DRIVER_CANCEL_REASONS}
         confirmLabel="Cancel trip"
-        cancelLabel="Keep trip"
         busy={busy}
-        destructive
         onConfirm={cancelTrip}
-        onCancel={() => setConfirmingCancel(false)}
+        onClose={() => setConfirmingCancel(false)}
       />
 
       <NoticeModal

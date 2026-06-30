@@ -5,7 +5,7 @@ import { MapPicker, type LatLng } from '../components/MapPicker'
 import { RideStatusPanel } from '../components/RideStatusPanel'
 import { useActiveRide } from '../hooks/useActiveRide'
 import { RenewPanel } from '../components/RenewPanel'
-import { ConfirmDialog } from '../components/ConfirmDialog'
+import { CancelReasonModal } from '../components/CancelReasonModal'
 import { Loading, ErrorState } from '../components/States'
 import { supabase } from '../lib/supabase'
 import { accessState } from '../lib/subscription'
@@ -17,6 +17,9 @@ const DEFAULT_CENTER: LatLng = { lat: 14.5995, lng: 120.9842 }
 // Common nearby destinations — one tap fills the field (still freely editable).
 // Subdivision-specific; update for the real launch area.
 const DESTINATION_QUICK_PICKS = ['Alfamart', 'Barangay Hall', 'Dear Joe', 'Balen Magalang']
+
+// One-tap reasons a commuter can attach when cancelling an accepted ride.
+const COMMUTER_CANCEL_REASONS = ['Driver takes too long to arrive', 'Fare is too high']
 
 // Remember the rider's last pickup address + destination across sessions so the
 // next booking is mostly pre-filled. localStorage can throw (private mode /
@@ -176,11 +179,14 @@ export default function CommuterHome() {
     await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })
   }
 
-  async function cancelAccepted() {
+  async function cancelAccepted(reason: string | null) {
     if (!ride) return
     setError(null)
     setBusy(true)
-    const { error } = await supabase.rpc('cancel_accepted_ride', { p_ride_id: ride.id })
+    const { error } = await supabase.rpc('cancel_accepted_ride', {
+      p_ride_id: ride.id,
+      p_reason: reason,
+    })
     setBusy(false)
     setConfirmingCancel(false)
     if (error) {
@@ -234,16 +240,14 @@ export default function CommuterHome() {
           surchargeBusy={busy}
         />
         {error && <p className="text-center text-sm text-red-600">{error}</p>}
-        <ConfirmDialog
+        <CancelReasonModal
           open={confirmingCancel}
           title="Cancel this ride?"
-          message="Your driver will be released and returned to the queue."
+          reasons={COMMUTER_CANCEL_REASONS}
           confirmLabel="Cancel ride"
-          cancelLabel="Keep ride"
           busy={busy}
-          destructive
           onConfirm={cancelAccepted}
-          onCancel={() => setConfirmingCancel(false)}
+          onClose={() => setConfirmingCancel(false)}
         />
       </div>
     )

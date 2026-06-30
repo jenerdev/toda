@@ -77,6 +77,7 @@ One row per booking request.
 | `created_at` | `timestamptz` | |
 | `accepted_at` | `timestamptz` null | |
 | `completed_at` | `timestamptz` null | |
+| `cancellation_reason` | `text` null | reason given when an **accepted** ride was cancelled (driver or commuter); shown to the other party (`0019`) |
 | `fare` | `int` | agreed all-in **trip fare** (₱), 0 unless the driver proposed one and the commuter approved (`0015`). Cash — the app only records it. The current UI proposes only this single fare. |
 | `surcharge` | `int` | agreed **pickup surcharge** (₱) — **retired from the UI** (the driver now folds pickup distance into the single `fare`). Kept for already-agreed rides; new requests are always 0. The RPCs still accept it (`0013`). |
 | `pending_fare` | `int` null | transient: trip fare a driver is proposing, awaiting the commuter's approval (cleared on approve/reject/cancel) (`0015`) |
@@ -201,8 +202,9 @@ RLS is **enabled on every table**. Policies (enforced by `auth.uid()`):
 
 **Trusted writes** (`subscription_until`, `is_admin`, queue ordering, ride status transitions, renewal status) happen
 exclusively in **Postgres `SECURITY DEFINER` functions** — `book_ride`, `respond_offer` (takes an optional trip fare
-+ pickup surcharge), `approve_surcharge`/`reject_surcharge` (commuter decides on the proposed fare/surcharge), `cancel_ride`,
-`cancel_accepted_ride`, `complete_ride`, `get_counterpart`, `expire_stale_offers`, `_offer_to_next_driver`,
++ pickup surcharge), `approve_surcharge`/`reject_surcharge` (commuter decides on the proposed fare; reject takes an optional reason),
+`cancel_ride`, `cancel_accepted_ride` (takes an optional cancel reason), `complete_ride`, `get_counterpart`,
+`expire_stale_offers`, `_offer_to_next_driver`,
 `submit_renewal`, `review_renewal`, `submit_driver_application`, `review_driver`, the
 `has_active_access()`/`is_admin()` helpers, plus `driver_go_online`/`driver_go_offline`, `driver_heartbeat`,
 `reap_stale_drivers`, and `update_driver_location` (each acting on the caller's own row). They run as the owner and so bypass RLS. This is the security boundary: the client

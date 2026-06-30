@@ -53,6 +53,8 @@ export interface Ride {
   created_at: string
   accepted_at: string | null
   completed_at: string | null
+  // Reason given when an accepted ride was cancelled (shown to the other party).
+  cancellation_reason: string | null
   // Fare + pickup surcharge (₱): `fare`/`surcharge` are the agreed amounts once
   // accepted; pending_* hold a driver's proposal while it awaits the commuter's
   // approval. `fare` is the trip fare (pickup → destination); `surcharge` is the

@@ -1,6 +1,6 @@
 /**
- * Single-button informational modal — an acknowledgement, not a choice (use
- * `ConfirmDialog` when there's a decision to make). Controlled via `open`;
+ * Single-button informational modal — an acknowledgement, not a choice.
+ * Controlled via `open`;
  * dismiss with the button or a backdrop tap. Layered above the map + the offer
  * overlay (z-[2000]), matching the ride-outcome modal.
  */

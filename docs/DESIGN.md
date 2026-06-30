@@ -371,11 +371,12 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   recovery).
 - `RideOutcomeToast` — dismissible confirmation shown to **both** parties when a ride ends, **completed or cancelled**
   (`useRideOutcome`); celebratory for completion, neutral for cancellation; mounted app-wide, renders above the map.
-- `ConfirmDialog` — in-app confirmation modal (controlled `open` + confirm/cancel handlers) used before a
-  destructive action; replaces native `window.confirm` (unstyled, off-brand, suppressed by some mobile browsers).
-  Today it guards **cancel-accepted-ride** (commuter) and **cancel-trip** (driver); the destructive button is red.
+- `CancelReasonModal` — confirms cancelling an **accepted** ride (replaces native `window.confirm` + the old generic
+  `ConfirmDialog`), with role-specific one-tap **reason** chips (driver: pickup/destination too far, don't know the
+  destination, fare too low, can't find commuter; commuter: driver too slow, fare too high). Reason is optional and
+  stored on the ride (`rides.cancellation_reason`); the destructive button is red.
 - `NoticeModal` — single-button **acknowledgement** modal (controlled `open`; optional emoji) for an FYI with no
-  choice to make — distinct from `ConfirmDialog`. Today it shows the driver's **"Ride missed"** timeout notice and the
+  choice to make. Today it shows the driver's **"Ride missed"** timeout notice and the
   **"Fare not approved"** notice when a rider declines a proposed fare.
 - `Spinner` / `Loading` / `EmptyState` / `ErrorState` (`States.tsx`) — shared state primitives: a consistent brand
   spinner, a quiet empty card, and a red **error card with a Try again** retry, used across Activity / Admin / the homes.

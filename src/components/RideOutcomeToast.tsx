@@ -35,13 +35,15 @@ export function RideOutcomeToast({
     total > 0
       ? ` — agreed fare ₱${total}${surcharge > 0 ? ` (incl. +₱${surcharge} pickup surcharge)` : ''}`
       : ''
+  const reason = outcome.ride.cancellation_reason
+  const reasonLine = reason ? ` Reason: “${reason}”.` : ''
   const body = completed
     ? isDriver
       ? `You're back in the queue. Collect the fare in cash${fareLine}.`
       : `Thanks for riding! Please pay your driver in cash${fareLine}.`
     : isDriver
-      ? "You're back in the queue."
-      : 'No charge. You can book another ride anytime.'
+      ? `You're back in the queue.${reasonLine}`
+      : `No charge. You can book another ride anytime.${reasonLine}`
 
   return (
     <div
