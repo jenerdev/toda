@@ -53,7 +53,7 @@ to the driver outside the app.)
 |-----------|----------------|
 | **Commuter PWA** | Type pickup address + destination + pin current location, call `book_ride` (gated on an active subscription), watch the ride live, see the driver's live location + chat after accept, call `complete_ride` / `cancel_accepted_ride`. Renew via `RenewPanel` when access lapses. On a `no_drivers` result, arm a watch (`useAvailableDrivers`) that alerts + offers one-tap re-book when a driver comes online. |
 | **Driver PWA** | Toggle online (join/leave queue; gated on an active subscription), heartbeat while online, receive offers **with the pickup address + destination + map up-front**, Accept/Decline (`respond_offer`), chat + stream GPS while on a trip (and see their **own** GPS on the trip map), `complete_ride` / `cancel_accepted_ride`. Opt into **ride-offer push** so offers arrive even when the app is closed. |
-| **Supabase Auth** | Identity (phone → synthetic email); `auth.uid()` powers RLS. |
+| **Supabase Auth** | Identity (phone → synthetic email); `auth.uid()` powers RLS. The login/signup screens add a **"Resend code" control with a 2-minute countdown** (`ResendOtp`) and a **required Terms & Conditions agreement** at signup (`TermsModal` — "Send code" is gated until accepted). |
 | **Postgres + RLS** | Source of truth. Users see only rows they're entitled to. |
 | **Supabase Storage** | Private `renewal-screenshots` bucket (per-user folders); the admin views proof via short-lived **signed URLs**. |
 | **Realtime** | Pushes offers to drivers, ride status to commuters, queue + driver location to both, chat messages, and renewal-status changes. |
@@ -83,11 +83,19 @@ Order is **FIFO by `queued_at` ascending**. Mutations:
 > last **60s**, so a closed/disconnected tab stops getting offers. A live client keeps itself fresh via the
 > `driver_heartbeat()` RPC (the client pings it on going online + every 25s). `reap_stale_drivers()` can mark stale
 > drivers offline for the queue *display*; it's optional (pg_cron) — dispatch is already correct via the 60s filter.
+>
+> **The gap this closes (`0024`).** A driver offered the ride while *just* fresh can still close their browser before
+> responding; their `pending` offer then sits until something expires it. The 60s filter governs who gets *offered*,
+> not an *outstanding* offer. So `nudge_ride_dispatch(p_ride_id)` — a ride-scoped, commuter-callable RPC — expires that
+> offer once the offered driver's heartbeat goes stale (or it passes the 2-minute timeout) and re-dispatches. The
+> waiting rider drives it: `useDispatchNudge` polls it every 10s while on "Finding you a driver…", so progress no
+> longer depends on the optional pg_cron sweep. (It leaves a live driver's fresh offer and an `awaiting_approval` fare
+> proposal untouched.)
 
 > **Implementation note (Phase 5).** The dispatch logic was built as **Postgres `SECURITY DEFINER`
 > functions (RPC)** — `book_ride`, `respond_offer`, `approve_surcharge`/`reject_surcharge`, `cancel_ride`,
-> `cancel_accepted_ride`, `get_counterpart`, `expire_stale_offers`, and the internal `_offer_to_next_driver` — rather
-> than Edge Functions. Same trust boundary
+> `cancel_accepted_ride`, `get_counterpart`, `nudge_ride_dispatch` (`0024`), `expire_stale_offers`, and the internal
+> `_offer_to_next_driver` — rather than Edge Functions. Same trust boundary
 > (`security definer` + `auth.uid()` checks; RLS still blocks direct table writes), but no CLI/Docker to deploy,
 > atomic transactions, and the timeout sweep reuses the same dispatch routine. The flow below is unchanged; in the
 > diagram "RPC (SECURITY DEFINER)" = these functions. *(The app does now have exactly **one** Edge Function,
@@ -134,8 +142,11 @@ sequenceDiagram
 
 - **Primary UX:** the driver's offer card shows a **2-minute countdown**. Letting it hit zero (or tapping Decline)
   calls `respond_offer` with `decline`, which marks the offer and dispatches the next driver.
-- **Safety net:** a `pg_cron` job (or an expiry check inside `respond_offer`) sweeps for `pending` offers older than
-  the timeout and expires them + advances the queue — so a driver who closes the tab can't stall a ride forever.
+- **Safety net (`0024`):** the waiting commuter's client polls **`nudge_ride_dispatch`** every 10s
+  (`useDispatchNudge`) while searching — it expires the outstanding `pending` offer once the offered driver's
+  heartbeat goes stale (closed browser) or it passes the timeout, then advances the queue. This drives progress
+  **without** depending on a `pg_cron` sweep, so a driver who closes the tab can't stall the ride. (The legacy
+  `expire_stale_offers` sweep still exists for the optional pg_cron path.)
 - **No drivers left:** if there is no next available driver, the ride is set to `no_drivers`. The commuter can retry,
   or arm a watch (`useAvailableDrivers`, live on `driver_states`) that alerts them and offers a **one-tap re-book**
   (reusing the pinned pickup) the moment a driver comes online — in-app via the Notifications API; for a closed app
@@ -187,7 +198,9 @@ BSP e-money regulation.
   DEFINER function that checks `is_admin()` **inside**, and on approve extends `subscription_until` by a month
   (stacking onto remaining time). The same `is_admin` role + signed-URL machinery also powers **driver verification**
   (`0011`): a driver uploads a license + motorcycle photo to the private `driver-docs` bucket, and an admin must
-  approve the application before `driver_go_online` will let them on.
+  approve the application before `driver_go_online` will let them on. The `/admin` page also has **driver and
+  commuter rosters** (`useAdminDrivers` — online/offline counts + filter, polled every 30s rather than a wildcard
+  `driver_states` subscription; `useAdminCommuters` — subscription status), alongside ride-outcome reports.
 - **No money moves through the app.** GCash handles the actual peso transfer; MotoQueue only records the claim and an
   admin confirms it. There is still **no payment processor** in this app. *(There is one server-side secret now — the
   Supabase **service-role key** — but it lives only in the `notify-driver` Edge Function's environment, used to read
@@ -201,10 +214,10 @@ BSP e-money regulation.
 | Driver | `rides` where `driver_id = me` | Show trip panel; toggle queue availability |
 | Commuter | `rides` where `client_id = me` | Update status UI (searching → accepted → completed / no_drivers) |
 | Both | `rides` (own row) UPDATE → `completed` | Show the ride-complete confirmation modal (see below) |
-| Commuter (active ride) | `driver_states` (driver's location) | Move the driver marker on the live map |
+| Commuter (active ride) | `driver_locations` (driver's location) | Move the driver marker on the live map — `driver_locations` is participant-scoped (`0027`), so only the matched rider receives it |
 | Both (active ride) | `messages` for the ride | Append new chat messages |
-| Anyone on queue screen | `driver_states` changes | Update live online count / position |
-| Commuter (no-drivers watch) | `driver_states` changes | Alert + offer one-tap re-book when a driver becomes available |
+| Anyone on queue screen | `driver_states` changes (**debounced** ~1.5s) | Update live online count / position; the burst of heartbeats coalesces into one refetch |
+| Commuter (no-drivers watch) | _(polled, not subscribed)_ | `useAvailableDrivers` now **polls a count every 20s** instead of a wildcard `driver_states` subscription — a coarse "any driver free yet?" signal that avoids fanning every heartbeat out to every waiting commuter |
 | Any signed-in user | `profiles` (own row) | Update the subscription badge live (e.g. after a renewal is approved) |
 | Any signed-in user | `renewals` for me | Flip the renewal status (pending → approved/rejected) in place |
 | Admin | `renewals` (all) | Refresh the pending-review queue as submissions arrive |
@@ -214,7 +227,10 @@ connection and `ReconnectBanner` shows a "Reconnecting… live updates paused" b
 channels are active — so a stalled screen never silently masquerades as current data. On reconnect it **refetches all
 queries** so the UI catches up on anything missed. The data hooks expose their query `error` and the screens render a
 shared `ErrorState` (with retry) via the `States.tsx` primitives, so a failed load shows an error card rather than a
-misleading empty state.
+misleading empty state. **Startup resilience:** `AuthProvider`'s initial session/profile load is wrapped so it can
+never strand the app on the "Loading…" screen — `setLoading(false)` always runs (a failed `getSession`/profile lookup
+falls through to `/login` rather than hanging), and a 10s watchdog reloads once (guarded so it can't loop) if the
+first load wedges on a never-settling network call.
 
 **Ride-outcome confirmation.** A finished ride leaves the active-ride query (terminal status), so on its own the UI
 would just snap back with no acknowledgement. `useRideOutcome` instead listens for the `rides` UPDATE that flips the
@@ -222,8 +238,10 @@ row to `completed` **or** `cancelled` and triggers `RideOutcomeToast`, a dismiss
 the one who acted *and* the counterpart, since the updated row matches both the `client_id` and `driver_id` filters
 (a driver only ever sees an event for a ride they were assigned to). Completed reads celebratory; cancelled is neutral
 ("back in the queue" for the driver, "book another ride" for the commuter). It's mounted once in `Layout` and is
-**event-driven** (fires only on a live transition, never replays on
-remount).
+**event-driven** (fires only on a live transition, never replays on remount). The cancelled modal fires **only for a
+ride that was actually matched** (`accepted_at` set) — clearing a never-matched `no_drivers`/`searching` ride via
+*Try again* / *Cancel* / re-book (all `cancel_ride`, which leaves `accepted_at` null) no longer pops a spurious "Ride
+cancelled" confirmation.
 
 ## PWA & notifications
 
@@ -257,11 +275,22 @@ fairness-related still lives in the RPCs.
   admins additionally read all `profiles` + `renewals` (via the SECURITY DEFINER `is_admin()` helper, which avoids
   RLS recursion).
 - `subscription_until`, `is_admin`, queue ordering, ride-status transitions, and `renewals.status` are **never**
-  writable from the client — only the `SECURITY DEFINER` functions touch them.
-- Those functions check `auth.uid()` (and `is_admin()` for review actions, and that the caller owns the ride/offer
-  they're acting on) before doing anything.
-- Chat inserts and driver-location updates go direct from the client but are constrained by RLS / a self-only RPC.
-  Renewal screenshots live in a **private** Storage bucket (per-user folder); reads are owner-or-admin via signed URLs.
+  writable from the client — only the `SECURITY DEFINER` functions touch them. As of **`0026`** this is enforced at
+  the **privilege layer too**: `anon`/`authenticated` have direct `INSERT/UPDATE/DELETE` **revoked** on every
+  RPC-managed table (`profiles`, `driver_states`, `rides`, `ride_offers`, `renewals`, `driver_applications`), so even
+  a future too-broad RLS policy can't reopen the hole. (This closed two over-broad own-row UPDATE policies that had
+  let a user set their own `is_admin`/`subscription_until` and a driver hand-edit `queued_at` to jump the queue.)
+- The **only** direct client writes that remain: `messages` INSERT (RLS: self + ride participant),
+  `push_subscriptions` (own rows), and a single `profiles.full_name` column grant (edit your own display name).
+  Everything else — including driver-location writes (`update_driver_location`) — goes through a `SECURITY DEFINER`
+  RPC, which checks `auth.uid()` (and `is_admin()` for review, and ride/offer ownership) before acting.
+- **Live driver GPS is participant-scoped (`0027`).** It lives in a dedicated `driver_locations` table whose RLS
+  exposes a driver's coordinates only to that driver and the commuter on their **active** ride — over query *and*
+  Realtime — instead of the old broadly-readable `driver_states.last_lat/last_lng` (dropped).
+- **SQL-injection surface (`0025`).** No dynamic SQL anywhere; every `SECURITY DEFINER` function pins
+  `search_path = public`; `CREATE` on schema `public` is revoked from client roles so nothing can shadow a
+  referenced object. Forged-JWT denial checks + a schema catch-up script live in `supabase/tests/`.
+- Renewal screenshots live in a **private** Storage bucket (per-user folder); reads are owner-or-admin via signed URLs.
 - `push_subscriptions` rows are **user-scoped by RLS** (you only ever touch your own). The `notify-driver` Edge
   Function reads them with the **service-role key** (server-only) and is itself gated by a shared `x-webhook-secret`,
   so only the Database Webhook can invoke it.

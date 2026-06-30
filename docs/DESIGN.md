@@ -46,7 +46,9 @@ Shared chrome: top bar with the app name + role, a **subscription badge** (shows
 link (all users) + an **Admin** link (admins only), and sign-out. A small **build-id stamp** sits in the footer **and
 on the login page** (so you can confirm which deploy you're on, even before signing in). When a ride ends — **completed
 or cancelled** — **both parties** get a dismissible confirmation modal (`RideOutcomeToast`): celebratory for a
-completion, neutral for a cancellation, shown over whatever screen they're on. As a PWA it also surfaces a dismissible **"Install MotoQueue"** banner (with an iOS "Share → Add to
+completion, neutral for a cancellation, shown over whatever screen they're on. The **cancellation** confirmation only
+fires for a ride that was actually **matched to a driver** — clearing a still-searching / no-drivers booking via "Try
+again", "Cancel", or a re-book does **not** pop a spurious "Ride cancelled" modal. As a PWA it also surfaces a dismissible **"Install MotoQueue"** banner (with an iOS "Share → Add to
 Home Screen" variant) and a **"new version available — Reload"** banner when an updated service worker is waiting
 (tapping Reload reliably activates the new version and refreshes). All these overlays/modals render **above the map**.
 Beyond the two role homes there are three more routes: **`/history`** (Activity), **`/admin`** (review queue), and the
@@ -60,19 +62,27 @@ in-place **Renew** flow (shown when access lapses).
 │        MotoQueue 🏍️       │
 │                          │
 │  Phone   [____________]  │  ← login identifier (no email)
-│        [ Send code ]      │
-│   ──────────────────      │
-│  Code    [ • • • • ]      │  ← OTP, demo = 1234 (no password)
-│                          │
 │  (signup only)           │
 │  Full name [__________]  │
 │  I am a:  ( ) Commuter    │
 │           ( ) Driver      │
-│                          │
-│  [      Continue      ]  │
+│  [✓] I agree to the       │  ← signup: REQUIRED Terms & Conditions
+│      Terms & Conditions   │     (link opens a scrollable modal)
+│        [ Send code ]      │  ← signup: disabled until agreed
+│   ──────────────────      │
+│  Code    [ • • • • ]      │  ← OTP, demo = 1234 (no password)
+│  Didn't get it? Resend 1:59│ ← 2-min countdown, then tappable
+│  [   Verify & continue   ]│
 │  ─ or ─  Create account  │
 └──────────────────────────┘
 ```
+- **Terms & Conditions (signup only):** a required **"I agree to the Terms and Conditions"** checkbox gates the signup
+  form — **"Send code" is disabled until it's ticked** (with a guard server-of-the-flow too). The link opens a
+  scrollable **`TermsModal`** (kept as a modal so the half-filled form isn't lost). Login is unchanged (existing users
+  already agreed). *The modal copy is starter/placeholder text — see [`LEGAL.md`](LEGAL.md); finalize before launch.*
+- **Resend code:** on the OTP step (both login and signup) a **`ResendOtp`** control shows a **2-minute countdown**
+  ("Resend in 1:59"), then becomes a tappable **"Resend code"** that restarts the timer. The OTP itself is still the
+  dummy **`1234`** (no real SMS yet) — resend is the UX/hook point for a real SMS provider.
 
 ### Commuter Home — find a driver
 ```
@@ -131,6 +141,11 @@ States: `searching` (spinner + cancel) · `accepted/enroute` (driver card + **li
 returns to booking; fare paid in cash to the driver) · `cancelled` (a neutral **"Ride cancelled"** confirmation, then
 back to booking) · `no_drivers` (see below). The accepted view also shows
 **quick-reply chips** above the chat input.
+
+While searching, **"Finding you a driver…" no longer hangs** if the front-of-queue driver closed their browser: the
+waiting rider's screen quietly nudges dispatch, so an offer to a driver who's gone dark (heartbeat stale) — or who let
+the offer time out — is expired and the ride **re-offered to the next driver** automatically (falling through to
+`no_drivers` only when nobody's left).
 
 The **`no_drivers`** screen (`NoDriversPanel`) offers more than a retry: alongside **Try again**, the commuter can tap
 **"🔔 Notify me when a driver's available"** to arm a watch on the live queue. While watching it shows a pulsing
@@ -295,7 +310,7 @@ fully-closed app would need Web Push — see ROADMAP.)
 ```
 Shown until the driver is **approved**; the online toggle is hidden/disabled until then.
 
-### Admin review ✅ _(built — `/admin`, admins only — two sections)_
+### Admin review ✅ _(built — `/admin`, admins only — review queues + rosters)_
 ```
 ┌──────────────────────────┐
 │  Driver verification     │
@@ -318,6 +333,30 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
 - A **Drivers** verification queue (license + motorcycle photos via signed URLs) reuses this same page + `is_admin`
   role (`0011`): pending applicants are listed, each photo opens via a short-lived signed URL, and Approve/Reject
   gates whether that driver can go online.
+
+**Rosters** (same page, below the review queues):
+```
+┌──────────────────────────┐
+│  Drivers          ↻      │
+│ [All 7][🟢 Online 3][⚪ Off 4]│ ← counts double as filters
+│  Mang Tonyo  🟢 Online    │
+│   0917…        seen 12s ago│
+│  Aling Rosa  🟢 On trip    │
+│  Kuya Boy    ⚪ Offline    │
+│  Ben         🟢 Online ⚠   │ ← "⚠ stale": online but heartbeat lapsed
+├──────────────────────────┤
+│  Commuters (12)    ↻      │
+│  Ana   Active             │ ← subscription status badge
+│  Maria In grace           │
+│  Jun   Expired            │
+└──────────────────────────┘
+```
+- **Drivers roster** (`AdminDriversSection`): live **online / offline counts that double as filter chips** (All /
+  Online / Offline), each driver's status (Online / On trip / Offline) + **"last seen"**, and a **"⚠ stale"** flag when
+  a driver shows online but their heartbeat has lapsed past the 60s window (so a crashed-app "online" isn't misleading).
+  Polled (not a live `driver_states` subscription) to keep the admin tab cheap.
+- **Commuters roster** (`AdminCommutersSection`): every commuter with a **subscription badge** — Active / In grace /
+  Expired / No sub — plus the expiry date.
 
 ### Activity ✅ _(built — `/history`, all users)_
 ```
@@ -362,7 +401,8 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   **road-route polyline** + distance/ETA caption. Used by both the commuter (`LiveTrackMap`) and the driver
   (`TripPanel`) — each draws the route via `useRoute`/OSRM with a straight-line fallback.
 - `LiveTrackMap` — commuter's live view of the driver moving toward the pickup (wraps `RouteMap`, driver position read
-  from the DB).
+  from the DB). Reads the **private `driver_locations`** table whose participant-scoped RLS exposes a driver's live GPS
+  only to that driver and the commuter on their active ride — never to other users.
 - `PickupMap` — read-only map of the commuter's pinned location (shown in the offer).
 - `InstallBanner` — dismissible PWA "Install MotoQueue" prompt (native `beforeinstallprompt` + iOS Share-sheet steps).
 - `ReloadPrompt` — "new version available — Reload" banner when an updated service worker is waiting; the Reload action
@@ -371,6 +411,16 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   recovery).
 - `RideOutcomeToast` — dismissible confirmation shown to **both** parties when a ride ends, **completed or cancelled**
   (`useRideOutcome`); celebratory for completion, neutral for cancellation; mounted app-wide, renders above the map.
+  The cancellation modal fires **only for a ride that was matched to a driver** (gated on `accepted_at`), so clearing
+  a no-drivers / still-searching booking doesn't pop a spurious "Ride cancelled".
+- `TermsModal` — scrollable **Terms & Conditions**, opened from the signup agreement checkbox (kept as a modal so the
+  half-filled form survives); single **Close**. Copy is starter/placeholder — finalize before launch (see `LEGAL.md`).
+- `ResendOtp` — OTP-step "Didn't get it? **Resend**" control with a **2-minute countdown** that then enables the
+  resend (restarting the timer); used by both Login and Signup. (Dummy OTP `1234` for now — hook point for real SMS.)
+- `AdminDriversSection` — admin drivers roster: online/offline **counts that double as filter chips**, per-driver
+  status + last-seen, and a **stale** flag for online-but-no-heartbeat drivers (polled, not subscribed).
+- `AdminCommutersSection` — admin commuters roster: each commuter with a subscription badge (active / in-grace /
+  expired / none) + expiry date.
 - `CancelReasonModal` — confirms cancelling an **accepted** ride (replaces native `window.confirm` + the old generic
   `ConfirmDialog`), with role-specific one-tap **reason** chips (driver: pickup/destination too far, don't know the
   destination, fare too low, can't find commuter; commuter: driver too slow, fare too high). Reason is optional and
@@ -388,7 +438,7 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
   rejected states with resubmit (`useMyRenewal`).
 - `DriverVerificationPanel` ✅ — license + motorcycle photo upload (`useMyDriverApplication`); pending/rejected status; gates the online toggle.
 - `Admin` page ✅ — admin-only; pending driver applications (`useAdminDriverApplications`) + pending renewals (`useAdminRenewals`), signed-URL doc/screenshot view, Approve/Reject with
-  reason.
+  reason. Plus **rosters** — `AdminDriversSection` (`useAdminDrivers`) + `AdminCommutersSection` (`useAdminCommuters`).
 - `Activity` page ✅ — per-user ride history (`useRideHistory`) + subscription history (`useRenewalHistory`).
 
 ## Empty / error states (don't skip)

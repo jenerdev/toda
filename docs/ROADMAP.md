@@ -156,8 +156,11 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   commuter and the driver when a ride ends — **completed** ("Ride/Trip completed!", cash-fare reminder) **or
   cancelled** ("back in the queue" for the driver, "book another ride" for the commuter). Driven by the realtime
   `rides → completed/cancelled` transition, so whoever acted *and* the counterpart both get it. Mounted in `Layout`.
+  > Only fires for a ride that was actually **matched** (`accepted_at` set) — clearing a `no_drivers`/`searching`
+  > ride via "Try again"/"Cancel"/rebook (`cancel_ride`) no longer pops a spurious "Ride cancelled" modal.
 - ✅ **No-drivers "notify me"** — when a booking returns `no_drivers`, the commuter can arm a watch (`NoDriversPanel`
-  + `useAvailableDrivers`, live on `driver_states`). When a driver comes online it shows an in-app "driver available
+  + `useAvailableDrivers`, a ~20s availability **poll** — switched off the wildcard `driver_states` realtime
+  subscription to cut Supabase Realtime fan-out). When a driver comes online it shows an in-app "driver available
   → Book now" CTA (one-tap re-book reusing the pinned location) and fires a system notification if permission was
   granted. Works while the app is open or backgrounded-but-alive; waking a **fully-closed** app still needs the
   deferred web-push below.
@@ -171,9 +174,13 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   ✅ **Verified working end-to-end on the deployed env** (driver receives the offer push with the app closed).
   🔒 **Pre-launch:** the VAPID keypair + `WEBHOOK_SECRET` in use were generated in a chat session — **rotate them**
   (regenerate VAPID keys, new `WEBHOOK_SECRET`) and update the function secrets / Vercel env before real launch.
+- ✅ **Dead-driver re-dispatch** — `nudge_ride_dispatch` (`0024`) + `useDispatchNudge`: while the commuter waits on
+  "Finding you a driver…", the app re-evaluates dispatch (~10s) and, if the offered driver closed their browser
+  (heartbeat stale) or sat past the offer timeout, expires the offer and advances to the next driver. Fixes the hang
+  where the #1 driver going offline mid-offer left the rider searching forever — and works without `pg_cron`.
 - Optional: schedule the **`pg_cron`** sweeps — `expire_stale_offers()` + `reap_stale_drivers()` (snippets are in the
-  `0003`/`0007` migration comments). Not required: the offer countdown + the driver heartbeat cover the live case;
-  the sweeps only tidy displayed state (e.g. a closed-tab driver lingering in the queue list).
+  `0003`/`0007` migration comments). Not required: the offer countdown, the driver heartbeat, and `nudge_ride_dispatch`
+  cover the live case; the sweeps only tidy displayed state (e.g. a closed-tab driver lingering in the queue list).
 
 ### Security & abuse prevention (harden before any real-user launch)
 > The MVP trusts its own demo environment. These are the gaps that matter once it's public-facing. Most defenses
@@ -249,7 +256,12 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   approves (extends a month, stacking) or rejects (with reason). Bootstrap the first admin by hand:
   `update profiles set is_admin = true where phone = '…'`. 🔲 Still open: an explicit **approval notification** (today
   the user just sees the live status flip via Realtime) and the **24h SLA** copy.
-- **Consumer terms (DTI).** 🔲 Short ToS: what the subscription buys, refunds, expiry, no-driver-available handling.
+  > ✅ Also added **driver + commuter rosters** on `/admin` (`useAdminDrivers`/`useAdminCommuters`): drivers with
+  > online/offline counts + filter chips + last-seen/stale flag, and commuters with subscription status.
+- **Consumer terms (DTI).** 🟡 An in-app **Terms & Conditions** agreement now gates signup (`TermsModal` + a required
+  checkbox before "Send code"). The copy is **starter/placeholder** describing the model (subscription, cash fares,
+  single-session, data use) — review/finalize it (refunds, expiry, no-driver handling, violations/suspension) with
+  the operator/legal before launch.
 - **Later (when manual review stops scaling):** automate collection via **GCash API / a payment gateway**.
 
 ### Deferred "v2" (from `MVP_SCOPE.md`)
@@ -293,6 +305,16 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0018_decline_reason.sql` | `ride_offers.decline_reason`; `reject_surcharge` takes an optional `p_reason` (drops the 1-arg version) and stores it on the declined offer → relayed to the driver |
 | `0019_cancel_reason.sql` | `rides.cancellation_reason`; `cancel_accepted_ride` takes an optional `p_reason` (drops the 1-arg version) and records it → shown to the other party in the outcome toast |
 | `0020_single_session.sql` | `profiles.active_session_id` + `claim_session(p_session_id)`; one active session per account — a new login stamps its device id and other devices self-sign-out via the profile Realtime watch (last login wins) |
+| `0021_ride_reporting.sql` | `ride_offers.timed_out`/`fare_rejected` discriminators (+ backfill); `admin_ride_stats(p_from,p_to)` RPC for the admin Reports section (completed/cancelled/missed/fare-declined/no-drivers + cancellation reasons) |
+| `0022_saved_addresses.sql` | `profiles.last_pickup_address`/`last_destination`; `book_ride` stamps them each booking so the rider's pickup/destination follow the account across devices |
+| `0023_cost_indexes.sql` | Indexes on `renewals(user_id, created_at desc)`, `rides(created_at)`, `ride_offers(offered_at)` — back the renewal-history reads and the `admin_ride_stats` time window |
+| `0024_dead_offer_nudge.sql` | `nudge_ride_dispatch(p_ride_id)` — rider-callable re-dispatch when the offered driver went stale (closed browser) or timed out; driven client-side by `useDispatchNudge` so "Finding you a driver…" can't hang without `pg_cron` |
+| `0025_harden_sql_injection.sql` | SQL-injection hardening: revoke `CREATE` on schema `public` from `public`/`anon`/`authenticated` (no object-shadowing of a SECURITY DEFINER `search_path`). Audit found no dynamic SQL; all functions already pin `search_path` |
+| `0026_rls_hardening.sql` | Authorization hardening: revoke direct `INSERT/UPDATE/DELETE` from `anon`/`authenticated` on every RPC-managed table (drops the over-broad `profiles_update_own`/`driver_states_update_own` escalation paths); keeps only `messages` INSERT, `push_subscriptions`, and a `profiles.full_name` column grant |
+| `0027_driver_location_privacy.sql` | Moves live GPS out of broadly-readable `driver_states` into a new `driver_locations` table with participant-scoped RLS (driver + the commuter on their active ride only); `update_driver_location` upserts it; drops `driver_states.last_lat/last_lng` |
+
+> **Verification helpers** (`supabase/tests/`): `schema_check.sql` (which migrations a live DB has applied) and
+> `rls_audit.sql` (forged-JWT denial checks for the `0026` boundaries).
 
 ---
 

@@ -49,21 +49,31 @@ The frontend is a static Vite build (HTML/JS/CSS), so any static host works.
 ## Backend (Supabase) — managed; you just apply SQL
 
 You don't host a server and you don't need the CLI. To set up (or update) the backend, open the Supabase **SQL
-Editor** and run the migration files in `supabase/migrations/` **in order** (`0001` → `0020`). Apply them all in
+Editor** and run the migration files in `supabase/migrations/` **in order** (`0001` → `0027`). Apply them all in
 order — later migrations redefine earlier functions (e.g. `book_ride`, `respond_offer`, `reject_surcharge`,
 `cancel_accepted_ride`) and **`0008` drops** `profiles.credits` + the `transactions` table, so skipping or reordering
 will leave the schema inconsistent. They create the tables, RLS, RPC functions, triggers, Realtime publications, and
 the private Storage buckets. The later batch adds ride **destination** (`0014`), a driver-proposed **fare** + min-fare
-gate (`0015`/`0017`), the 2-minute offer timeout (`0016`), **decline/cancel reasons** (`0018`/`0019`), and
-**single-active-session** enforcement (`0020`).
+gate (`0015`/`0017`), the 2-minute offer timeout (`0016`), **decline/cancel reasons** (`0018`/`0019`),
+**single-active-session** enforcement (`0020`), admin ride **reporting** + saved addresses (`0021`/`0022`), cost
+**indexes** (`0023`), auto re-dispatch when an offered driver drops off (`nudge_ride_dispatch`, `0024`), a
+**security-hardening** pass — SQL-injection lockdown (`0025`, revokes `CREATE` on `public`) and an RLS/authorization
+lockdown that revokes direct client DML so the SECURITY DEFINER RPCs are the only write path (`0026`) — and the move
+of driver live-location into a participant-scoped **`driver_locations`** table (`0027`).
 > Note: applying **`0011`** gates `driver_go_online` behind an **approved** `driver_applications` row — existing
 > drivers can't go online until approved in `/admin`. Apply it when you're ready for that gate, not mid-test.
+> **`0027` must ship with the matching frontend:** it drops `driver_states.last_lat/last_lng` and the current client
+> reads live location from `driver_locations` instead — apply `0027` and deploy the new build together, or live
+> tracking errors against the mismatched half.
+> **Helper scripts** in `supabase/tests/` (run in the SQL Editor): `schema_check.sql` reports which migrations a
+> database already has (handy before/after applying a batch), and `rls_audit.sql` runs forged-JWT checks asserting
+> RLS denials (admin escalation, subscription self-extend, queue tampering, cross-user reads).
 
 One-time project settings:
 
 - **Auth → Providers → Email → "Confirm email" OFF** (phone sign-ups use synthetic, non-routable emails).
 - Realtime is enabled per-table **by the migrations** (`driver_states`, `rides`, `ride_offers`, `profiles`,
-  `messages`, `renewals`, `driver_applications`) — no manual toggling needed.
+  `messages`, `renewals`, `driver_applications`, and `driver_locations` from `0027`) — no manual toggling needed.
 - The private **`renewal-screenshots`** (`0010`) and **`driver-docs`** (`0011`) Storage buckets + their RLS policies
   are created by the migrations — no manual setup. **Caveat:** some Supabase projects block `create policy … on
   storage.objects` from the SQL Editor. If uploads later 403, the bucket exists but the policies didn't apply — re-add
@@ -129,4 +139,6 @@ Use a separate Supabase project for prod vs. dev so you never test against live 
 
 Both Vercel/Netlify and Supabase have free tiers that comfortably cover an MVP and demo. The main thing to watch as
 usage grows is Supabase's realtime connection count and database size, and (only if you switch maps) Google Maps
-billing — which is why the MVP uses free OpenStreetMap.
+billing — which is why the MVP uses free OpenStreetMap. To keep realtime/egress down, the broad "are drivers
+available?" watch **polls** (instead of a wildcard `driver_states` subscription), the live driver-queue refetch is
+**debounced**, and `0023` adds indexes for the heavier reads.

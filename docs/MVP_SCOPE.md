@@ -16,18 +16,18 @@ deployed** (Vercel; repo [github.com/jenerdev/toda](https://github.com/jenerdev/
 
 | Area | What's included |
 |------|-----------------|
-| **Auth** | **Phone number + one-time code** sign-up / login (most users have no email, no password to remember). The OTP is a **dummy `1234`** for the MVP (real SMS provider later). The phone maps to a synthetic email + derived password for Supabase Auth, hidden from the user. Pick a role at signup: `commuter` or `driver`. |
+| **Auth** | **Phone number + one-time code** sign-up / login (most users have no email, no password to remember). The OTP is a **dummy `1234`** for the MVP (real SMS provider later), with a **resend control + 2-minute countdown** on the code step. Signup requires agreeing to an in-app **Terms & Conditions** (checkbox gating "Send code"; opens a scrollable modal — placeholder copy, finalize before launch). The phone maps to a synthetic email + derived password for Supabase Auth, hidden from the user. Pick a role at signup: `commuter` or `driver`. **One active session per account** (last login wins). |
 | **Profiles** | Name, phone, role, `subscription_until`, `is_admin`. |
 | **Subscription & access** | Flat **₱30/month** gates access (commuter can book; driver can go online). **First month free**, **3-day grace** after expiry. Manual **GCash** renewal (ref number + optional screenshot) reviewed by an admin. ✅ Built (`0008`–`0010`) — **per-ride credits were retired**; the app never touches fares (cash, outside the app). See [`MONETIZATION.md`](MONETIZATION.md). |
 | **Driver queue** | Online/offline toggle. Going online joins the **back** of a single FIFO queue. Live queue list + your position. A client **heartbeat** keeps an online driver dispatchable; stale (closed-tab) drivers fall out after 60s. |
 | **Booking** | Commuter **types the pickup address + destination** (both free text, shown to the driver) and **must pin their current GPS location** (all three required before booking — the primary button pins location first, then becomes "Find me a driver") on a Leaflet map (coordinates power the live-tracking map). Destination added in `0014`. |
-| **Dispatch** | First available driver is offered the ride **with the pickup address + map shown up-front**. Decline / timeout → next driver. Accept → commuter notified. Either side can **cancel after accept** (driver re-queued). Accepting **requires** a single all-in **trip fare** (min ₱20, ₱5 steps, up to ₱1000, folding in any extra for a far pickup); the commuter approves it before the ride (no instant accept), decline → next driver. ✅ Built (`0013`, `0015`, `0017`). |
+| **Dispatch** | First available driver is offered the ride **with the pickup address + map shown up-front**. Decline / timeout → next driver. Accept → commuter notified. Either side can **cancel after accept** (driver re-queued). Accepting **requires** a single all-in **trip fare** (min ₱20, ₱5 steps, up to ₱1000, folding in any extra for a far pickup); the commuter approves it before the ride (no instant accept), decline → next driver. A front-of-queue driver who **closed their browser** no longer strands the rider — the waiting screen nudges re-dispatch so a dead/timed-out offer rolls to the next driver (`0024`). ✅ Built (`0013`, `0015`, `0017`). |
 | **Ride lifecycle** | `searching → accepted → enroute → completed` (plus `cancelled`, `no_drivers`). |
 | **Re-queue** | After completing, the driver returns to the **end** of the queue. |
 | **Realtime** | Drivers see incoming offers instantly; commuters see status changes instantly. |
 | **In-ride chat** | Once accepted, commuter and driver can exchange messages (realtime, scoped to the ride), with one-tap **quick-reply chips** (canned Tagalog phrases per role). |
-| **Live driver location** | While on a trip, the driver streams GPS; the commuter sees the driver moving on a map toward the pickup. |
-| **Admin review** | An `is_admin` role + `/admin` page to review GCash renewals **and driver applications** (Approve/Reject with reason). ✅ Built (`0010`/`0011`). |
+| **Live driver location** | While on a trip, the driver streams GPS; the commuter sees the driver moving on a map toward the pickup. Stored in a **private, participant-scoped table** (`0027`) so a driver's live coordinates are visible only to that driver and the commuter on their active ride — never to other users. |
+| **Admin review** | An `is_admin` role + `/admin` page to review GCash renewals **and driver applications** (Approve/Reject with reason). ✅ Built (`0010`/`0011`). Plus **rosters**: a Drivers list (online/offline counts + filter + last-seen + stale-heartbeat flag) and a Commuters list (subscription status). ✅ Built. |
 | **Driver verification** | Drivers upload license + motorcycle photos for admin approval; can't go online until approved. ✅ Built (`0011`). |
 | **Activity history** | Per-user `/history`: ride/trip history + subscription-renewal history. ✅ Built. |
 | **Push notifications** | **Driver ride-offer push** via native Web Push (VAPID + a `notify-driver` Edge Function on a `ride_offers` DB webhook) — drivers get offers **even when the app is closed / phone locked**. ✅ Built & verified. Commuter-side **"notify me when a driver's available"** on the no-drivers screen (in-app + system notification while the app is alive), with one-tap re-book. ✅ Built. ⚠️ iOS Web Push needs the **installed PWA** (iOS 16.4+), not a Safari tab. |
@@ -38,7 +38,7 @@ deployed** (Vercel; repo [github.com/jenerdev/toda](https://github.com/jenerdev/
 
 | Deferred | Why it waits |
 |----------|--------------|
-| **Real SMS OTP** | The `1234` dummy OTP is a **launch blocker**; swap in a real SMS provider before public launch. |
+| **Real SMS OTP** | The `1234` dummy OTP is a **launch blocker**; swap in a real SMS provider before public launch. The **resend + 2-minute countdown UI is already built** (and the agree-to-Terms gate at signup) — only the actual SMS send is pending. |
 | **Multiple zones / subdivisions** | MVP is one shared queue. Multi-zone needs geofencing + per-zone queues — also the monetization growth lever. |
 | **Ratings & reviews** | Not needed to prove the core loop. |
 | **Voice calling** | Tap-to-call the shared phone number covers this; in-app chat is built. |

@@ -7,6 +7,7 @@ PostgreSQL (via Supabase). All app tables live in the `public` schema and refere
 ```
 auth.users 1───1 profiles
 profiles   1───0..1 driver_states      (only for role='driver')
+profiles   1───0..1 driver_locations   (private live GPS; only for role='driver')
 profiles   1───*  rides (as client_id)
 profiles   0..1─* rides (as driver_id)
 rides      1───*  ride_offers
@@ -50,12 +51,9 @@ Live state for drivers; drives the queue.
 | `queued_at` | `timestamptz` | **FIFO key**; set to `now()` on go-online and on re-queue |
 | `updated_at` | `timestamptz` | **liveness/heartbeat key** — bumped on go-online, location updates, and the `driver_heartbeat()` ping. Dispatch ignores drivers stale > 60s (`0007`). |
 
-> **Live location** moved out of `driver_states` into its own `driver_locations`
-> table (`driver_id` PK, `lat`, `lng`, `updated_at`) in `0027`. `driver_states`
-> is broadly readable (the queue needs it), and RLS is row-level — so keeping GPS
-> here would expose every driver's coordinates to all users (incl. over Realtime).
-> `driver_locations` has participant-scoped RLS: only the driver and the commuter
-> on that driver's **active** ride can read it.
+> **Live location** moved out of `driver_states` into the separate
+> `driver_locations` table (`0027`) — see below. `driver_states` is broadly
+> readable (the queue needs it), so GPS can't live here without leaking.
 
 **Queue query** (next driver to offer):
 ```sql
@@ -66,6 +64,24 @@ where is_online = true and availability = 'available'
 order by queued_at asc
 limit 1;
 ```
+
+### `driver_locations` _(private live GPS — `0027`)_
+One row per driver (PK = `driver_id`). Split out of `driver_states` so a driver's
+live coordinates aren't exposed to every authenticated user. While on a trip the
+driver streams GPS via `update_driver_location` (which also bumps
+`driver_states.updated_at` for liveness); the matched commuter reads/subscribes to
+this row to render the moving marker.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `driver_id` | `uuid` PK | FK → `profiles.id` (on delete cascade) |
+| `lat` | `double precision` null | latest latitude |
+| `lng` | `double precision` null | latest longitude |
+| `updated_at` | `timestamptz` | default `now()`; bumped on each fix |
+
+> **Participant-scoped RLS:** readable only by the driver themselves, or the
+> commuter on that driver's **active** (`accepted`/`enroute`) ride — over direct
+> query *and* Realtime. No client writes (only the `update_driver_location` RPC).
 
 ### `rides`
 One row per booking request.
@@ -99,9 +115,11 @@ The dispatch sequence — one row per (ride, driver) offer.
 | `ride_id` | `uuid` | FK → `rides.id` |
 | `driver_id` | `uuid` | FK → `profiles.id` |
 | `status` | `text` | `pending` \| `accepted` \| `declined` \| `expired` \| `awaiting_approval` (held while the commuter decides on a proposed fare/surcharge, `0013`/`0015`) |
-| `offered_at` | `timestamptz` | default `now()` (timeout sweep uses this) |
+| `offered_at` | `timestamptz` | default `now()` (timeout sweep + `nudge_ride_dispatch` use this) |
 | `responded_at` | `timestamptz` null | |
 | `decline_reason` | `text` null | reason the commuter gave when declining a proposed fare (e.g. "Requested fare is too high"); relayed to the driver (`0018`) |
+| `timed_out` | `bool` | default `false`; set true only when the offer expired because the driver never responded (the genuine "missed" case — vs. ride-taken/cancel expiries). Drives the admin **Missed** report (`0021`). |
+| `fare_rejected` | `bool` | default `false`; set true only when the commuter rejected this offer's proposed fare (vs. a plain driver decline). Drives the admin **Fare declines** report (`0021`). |
 
 ### `messages`
 In-ride chat between the two participants.
@@ -182,11 +200,13 @@ create index on driver_states (is_online, availability, queued_at);  -- queue lo
 create index on ride_offers (ride_id);
 create index on ride_offers (driver_id, status);                     -- "my pending offers"
 create index on ride_offers (status, offered_at);                    -- timeout sweep
+create index on ride_offers (offered_at);                            -- admin_ride_stats time window (0023)
 create index on rides (client_id, created_at desc);
 create index on rides (driver_id, status);
+create index on rides (created_at);                  -- admin_ride_stats time window (0023)
 create unique index on renewals (gcash_ref);         -- block reference-number reuse
 create index on renewals (status, created_at);       -- admin pending-review queue
-create index on renewals (user_id, created_at desc); -- a user's renewal history
+create index on renewals (user_id, created_at desc); -- a user's renewal history (0023)
 create index on driver_applications (status, submitted_at); -- admin pending-verification queue
 create unique index on push_subscriptions (endpoint);       -- one row per device; upsert on re-subscribe
 create index on push_subscriptions (user_id);               -- a driver's devices (lookup when sending)
@@ -198,9 +218,10 @@ RLS is **enabled on every table**. Policies (enforced by `auth.uid()`):
 
 | Table | Read | Write (client) |
 |-------|------|----------------|
-| `profiles` | own row (and limited fields of a matched counterpart); **admins** read all | own row, **except `subscription_until` and `is_admin`** (functions only) |
-| `driver_states` | own row; online drivers' presence visible for the queue count | own row's `is_online` only; `queued_at`/`availability`/`updated_at` via functions |
-| `rides` | own ride (`client_id = uid`), assigned (`driver_id = uid`), or **offered** (a driver with a `ride_offers` row — to see the pickup up-front) | INSERT via `book_ride`; status changes via functions |
+| `profiles` | own row (and limited fields of a matched counterpart); **admins** read all | **only `full_name` of your own row** (`0026` column grant); every other column — `subscription_until`, `is_admin`, `active_session_id`, `role` — is functions-only |
+| `driver_states` | online drivers' presence (`is_online`/`availability`/`queued_at`) visible for the queue | **none directly** (`0026`) — go-online/offline, queue order, heartbeat all via functions |
+| `driver_locations` | the driver, or the commuter on that driver's **active** ride (`0027`) | **none directly** — only `update_driver_location` |
+| `rides` | own ride (`client_id = uid`), assigned (`driver_id = uid`), or **offered** (a driver with a `ride_offers` row — to see the pickup up-front) | **none directly** (`0026`) — INSERT via `book_ride`, status changes via functions |
 | `ride_offers` | offers addressed to me (`driver_id = uid`) | none directly — responses go through `respond_offer` |
 | `messages` | ride participants only | INSERT as self, ride participants only (direct, no trust concern) |
 | `renewals` | own rows; **admins** read all | **none directly** — INSERT via `submit_renewal` (`status='pending'`); `status`/expiry set **only** by `review_renewal` (admin-check inside the function) |
@@ -211,7 +232,8 @@ RLS is **enabled on every table**. Policies (enforced by `auth.uid()`):
 exclusively in **Postgres `SECURITY DEFINER` functions** — `book_ride`, `respond_offer` (takes an optional trip fare
 + pickup surcharge), `approve_surcharge`/`reject_surcharge` (commuter decides on the proposed fare; reject takes an optional reason),
 `cancel_ride`, `cancel_accepted_ride` (takes an optional cancel reason), `complete_ride`, `get_counterpart`,
-`expire_stale_offers`, `_offer_to_next_driver`,
+`expire_stale_offers`, `nudge_ride_dispatch` (re-dispatch a ride whose offered driver went stale / timed out — `0024`),
+`_offer_to_next_driver`,
 `submit_renewal`, `review_renewal`, `submit_driver_application`, `review_driver`, `claim_session`, the
 `has_active_access()`/`is_admin()` helpers, plus `driver_go_online`/`driver_go_offline`, `driver_heartbeat`,
 `reap_stale_drivers`, and `update_driver_location` (each acting on the caller's own row). They run as the owner and so bypass RLS. This is the security boundary: the client
@@ -220,14 +242,26 @@ directly by the client (constrained by RLS to ride participants) — no trust co
 documents sit in **private** Storage buckets (`renewal-screenshots`, `driver-docs`), uploaded under a per-user folder
 and read only by the owner or an admin via short-lived **signed URLs**.
 
+> **Hardening (`0025`/`0026`).** Because the anon key is public, the boundary is enforced at the privilege layer too,
+> not just by RLS: direct `INSERT/UPDATE/DELETE` is **revoked** from `anon`/`authenticated` on every RPC-managed table,
+> so the SECURITY DEFINER functions are the *only* write path (the lone client-writable exceptions are `messages`
+> INSERT, `push_subscriptions`, and the `profiles.full_name` column). `CREATE` on schema `public` is revoked from the
+> client roles (no object-shadowing of a function's `search_path`), and every SECURITY DEFINER function pins an
+> explicit `search_path`. Forged-JWT denial checks live in `supabase/tests/rls_audit.sql`; `supabase/tests/schema_check.sql`
+> reports which migrations a live DB has applied.
+
 ## Triggers / jobs
 
 - **On `auth.users` insert** (`handle_new_user`) → create a `profiles` row (role from signup metadata) with
   `subscription_until = now() + 1 month` (**first month free**), and a `driver_states` row for drivers.
+- **Client-driven re-dispatch** (`nudge_ride_dispatch`, `0024`) → while a commuter is on "Finding you a driver…",
+  `useDispatchNudge` polls this RPC (~10s). It expires a `pending` offer whose driver went stale (closed browser) or
+  passed the 2-minute timeout and advances to the next driver / `no_drivers`. This makes progress independent of the
+  `pg_cron` sweep below — the waiting rider drives it.
 - **`pg_cron` sweeps** _(optional — snippets in `0003`/`0007`)_ → `expire_stale_offers()` (expire `pending` offers
   past the timeout, then advance to the next driver / `no_drivers`) and `reap_stale_drivers()` (mark drivers stale
-  > 60s offline). Neither is required: the offer countdown + the client `driver_heartbeat` cover the live path; the
-  sweeps only tidy displayed state.
+  > 60s offline). Neither is required: the offer countdown, the client `driver_heartbeat`, and `nudge_ride_dispatch`
+  cover the live path; the sweeps only tidy displayed state.
 - **Database Webhook on `ride_offers` insert** (`0012`) → calls the `notify-driver` Edge Function, which looks up the
   offered driver's `push_subscriptions` and sends a Web Push so the offer reaches them even when the app is closed.
   Setup (VAPID keys, function secrets, webhook) is documented in [`DEPLOYMENT.md`](DEPLOYMENT.md).
