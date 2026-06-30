@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthProvider'
 import { MapPicker, type LatLng } from '../components/MapPicker'
 import { RideStatusPanel } from '../components/RideStatusPanel'
 import { useActiveRide } from '../hooks/useActiveRide'
+import { useDispatchNudge } from '../hooks/useDispatchNudge'
 import { RenewPanel } from '../components/RenewPanel'
 import { CancelReasonModal } from '../components/CancelReasonModal'
 import { Loading, ErrorState } from '../components/States'
@@ -25,6 +26,9 @@ export default function CommuterHome() {
   const { user, profile } = useAuth()
   const qc = useQueryClient()
   const { ride, loading, error: rideError } = useActiveRide(user?.id)
+  // While waiting on "Finding you a driver…", keep dispatch moving even if the
+  // front-of-queue driver closed their browser (see useDispatchNudge / 0024).
+  useDispatchNudge(ride)
 
   const [pickup, setPickup] = useState<LatLng>(DEFAULT_CENTER)
   const [address, setAddress] = useState('')

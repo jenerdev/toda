@@ -2,12 +2,10 @@
 
 - app should only available for mobile. not available on desktop
 
-- bug on cancelled/declined ride
-- bug on PWA. loading.. freeze. auto reload for a certain period?
-
 - advertisement ai video
 
 #BUG
+- 
  
 # Design/Architecture
 - final layout and UI design. UI/UX Improvement
@@ -16,8 +14,6 @@
 - 
 
 # admin
-- list of drivers - show count of online/offline -  can filter online/offline, 
-- list of commuters
 
 # customer support
 - email and number
