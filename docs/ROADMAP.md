@@ -135,12 +135,13 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
   ("~450 m from you · ~2 min") so the driver can judge the pickup before accepting. Throttled (~per 100 m of driver
   movement) and **falls back to a straight line + great-circle distance** when the demo endpoint is unavailable.
   ⚠️ OSRM demo is best-effort; a keyed routing provider would be the upgrade for production.
-- ✅ **Driver-proposed fare (`0013`, `0015`)** — before accepting, the driver proposes a single all-in **trip fare**
-  (chips ₱0/20/30/40/50 + **+10**, up to ₱1000), folding any extra for a far pickup into that one number. If > 0 the
-  commuter must **approve** before the ride proceeds, else it's offered to the next driver. Handshake via
-  `respond_offer(…, p_fare)` → offer `awaiting_approval` + `rides.pending_fare` → `approve_surcharge`/`reject_surcharge`
-  (`OfferCard` selector + `FareApprovalPanel`; `FareBreakdown` shows the fare). Framed as **relay-only** — money stays
-  **cash**, the app only records the agreed amount (`rides.fare`). ⚠️ Fare-relay/TODA caveat in [`LEGAL.md`](LEGAL.md).
+- ✅ **Driver-proposed fare (`0013`, `0015`, `0017`)** — accepting **requires** a single all-in **trip fare**
+  (chips ₱20/30/40/50 + **+5**, **min ₱20**, up to ₱1000), folding any extra for a far pickup into that one number.
+  The commuter must **approve** before the ride proceeds (no instant accept), else it's offered to the next driver.
+  Handshake via `respond_offer(…, p_fare)` → offer `awaiting_approval` + `rides.pending_fare` →
+  `approve_surcharge`/`reject_surcharge` (`OfferCard` selector + `FareApprovalPanel`; `FareBreakdown` shows the fare).
+  The ₱20 floor is enforced server-side (`0017`). Framed as **relay-only** — money stays **cash**, the app only records
+  the agreed amount (`rides.fare`). ⚠️ Fare-relay/TODA caveat in [`LEGAL.md`](LEGAL.md).
   > The separate **pickup-surcharge** UI (`0013`, ≥200 m gate) was **retired** in favor of one fare — the driver folds
   > pickup distance into the single fare. `rides.surcharge` + the surcharge RPC args are kept for already-agreed rides.
 - ✅ **Ride-outcome confirmation** — `useRideOutcome` + `RideOutcomeToast`: a dismissible modal shown to **both** the
@@ -265,6 +266,7 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0014_destination.sql` | `rides.destination` (free text); `book_ride` takes `p_destination` (required, non-empty) and the old 3-arg signature is dropped; shown to the driver in the offer/trip |
 | `0015_trip_fare.sql` | `rides.fare`/`pending_fare`; `respond_offer` takes `p_fare` (drops the 3-arg version); `approve_surcharge`/`reject_surcharge`/`cancel_ride` handle the fare alongside the surcharge; surcharge gate tightened 1 km → 200 m (client-side) |
 | `0016_offer_timeout.sql` | Rider-pickup time limit 30 s → **2 min**: `expire_stale_offers` sweep interval bumped to match the client `OFFER_TIMEOUT_SECONDS` (120) |
+| `0017_min_fare.sql` | Mandatory fare: `respond_offer` requires a proposed fare **≥ ₱20** on accept (no zero-fare/instant accept); scoped to the accept branch so decline is unaffected |
 
 ---
 

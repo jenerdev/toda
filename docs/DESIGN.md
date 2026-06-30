@@ -181,8 +181,8 @@ fully-closed app would need Web Push — see ROADMAP.)
 │   SM Mall                 │  ← destination (filled red dot)
 │   📍 ~1.4 km from you·5min │  ← estimated range to the pickup
 │   [ MAP: 🏍️ you ⟶ 📍 pickup]│  ← both points + red route line
-│   Fare for the trip        │  ← one all-in cash fare
-│ [None][₱20][₱30][₱40][+10] │  ← fare chips; "+10" bumps current (max ₱1000)
+│   Fare for the trip (req.) │  ← one all-in cash fare, min ₱20
+│ [₱20][₱30][₱40][₱50][+5]   │  ← fare chips; "+5" bumps current (max ₱1000)
 │   ⏱ 1:48                  │  ← countdown (in the header row; 2:00 limit)
 │ [        Decline        ] │  ← full-width, stacked
 │ [  Request ₱40 & accept  ] │
@@ -193,13 +193,14 @@ fully-closed app would need Web Push — see ROADMAP.)
   current location and the pickup** with the **route line** between them, plus an **estimated distance/ETA** ("~1.4 km
   from you · ~5 min", from a one-shot GPS fix + `useRoute`), so the driver can judge the pickup's distance before
   accepting. Falls back gracefully (pickup-only) if location permission isn't granted.
-- **One all-in fare:** preset chips **[None] [₱20] [₱30] [₱40]** plus a **[+10]** chip (capped at ₱1000). The driver
-  names a *single* cash fare for the whole trip and folds any extra for a far pickup into it themselves — there is no
-  separate surcharge selector (it added friction in the 2-minute window; the driver already sees the pickup
-  distance/ETA to price by). When the amount climbs past the top chip via **[+10]** that chip **stays highlighted**
-  (the highlighted chip is the largest preset ≤ the current amount). If the **fare > 0** the Accept button reads
-  **"Request ₱X & accept"** and the card switches to a **"Waiting for rider…"** state until the commuter decides;
-  **fare 0 = instant accept** (agreed in person). Buttons are stacked full-width.
+- **One all-in fare (mandatory):** preset chips **[₱20] [₱30] [₱40] [₱50]** plus a **[+5]** chip — **minimum ₱20**, in
+  **₱5 increments**, capped at ₱1000; it defaults to ₱20 (no "None"). The driver names a *single* cash fare for the
+  whole trip and folds any extra for a far pickup into it themselves — there is no separate surcharge selector (it
+  added friction in the 2-minute window; the driver already sees the pickup distance/ETA to price by). When the amount
+  climbs past the top chip via **[+5]** that chip **stays highlighted** (the highlighted chip is the largest preset ≤
+  the current amount). The Accept button always reads **"Request ₱X & accept"** and the card switches to a
+  **"Waiting for rider…"** state until the commuter decides — **there is no instant/zero-fare accept**; every ride goes
+  through the commuter's approval. The ₱20 floor is enforced server-side too (migration `0017`). Buttons stacked full-width.
   > The `rides.surcharge` column + the surcharge args on the RPCs are **retained** (already-agreed rides keep their
   > itemized amount, and `FareBreakdown` still renders the legacy receipt for those); new requests just send `0`.
 - **Presentation:** the card takes over the screen as a **focused overlay** (dimmed backdrop, centered, above the
@@ -338,7 +339,7 @@ Shown until the driver is **approved**; the online toggle is hidden/disabled unt
 - `QueueStatus` — anonymized queue **summary**: available-driver count + the driver's own position, with a distinct
   emerald **"You're next up"** state (live pulse) when first in line. *(Replaced the old per-driver `QueueList`.)*
 - `OfferCard` — countdown + accept/decline; **shows the pickup address, destination, + a route map up-front**, plus a
-  single all-in **fare** selector (chips + [+10]).
+  single all-in **fare** selector (mandatory, min ₱20, ₱5 steps).
 - `FareApprovalPanel` — commuter's amber prompt to approve/decline a driver's proposed fare (2-minute countdown); shows
   the `FareBreakdown`. Replaced the old single-amount `SurchargeApprovalPanel`.
 - `FareBreakdown` — fare display (cash): one **"Fare (cash) ₱X"** line for the current single-fare flow; legacy rides

@@ -6,14 +6,14 @@ import { RouteSummary } from './RouteSummary'
 import { useCurrentPosition } from '../hooks/useCurrentPosition'
 import { useRoute } from '../hooks/useRoute'
 import { formatDistance, formatEta } from '../lib/geo'
-import { FARE_PRESETS, FARE_STEP, FARE_MAX, FARE_DRIVER_NOTE } from '../lib/fare'
+import { FARE_PRESETS, FARE_MIN, FARE_STEP, FARE_MAX, FARE_DRIVER_NOTE } from '../lib/fare'
 
 /**
  * Incoming ride offer for a driver, with a live countdown.
  * Letting the timer hit zero auto-declines, so the next driver gets it.
- * Before accepting the driver may propose a single cash fare for the whole trip
- * (they fold in any extra for a far pickup themselves); if it's > 0 the commuter
- * must approve — while that's pending the card shows a waiting state.
+ * Accepting requires a single cash fare for the whole trip (min ₱20, ₱5 steps;
+ * the driver folds in any extra for a far pickup themselves); the commuter must
+ * approve it — while that's pending the card shows a waiting state.
  */
 export function OfferCard({
   offer,
@@ -32,7 +32,7 @@ export function OfferCard({
     Math.max(0, OFFER_TIMEOUT_SECONDS - Math.floor((Date.now() - offeredMs) / 1000)),
   )
   const firedTimeout = useRef(false)
-  const [fare, setFare] = useState(0)
+  const [fare, setFare] = useState<number>(FARE_MIN)
 
   useEffect(() => {
     if (isAwaiting) return // the rider is deciding — don't auto-decline
@@ -119,7 +119,7 @@ export function OfferCard({
                   : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50')
               }
             >
-              {amt === 0 ? 'None' : `₱${amt}`}
+              ₱{amt}
             </button>
           ))}
           <button
@@ -147,7 +147,7 @@ export function OfferCard({
           disabled={busy}
           className="w-full rounded-lg bg-brand py-2.5 font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60"
         >
-          {busy ? '…' : fare > 0 ? `Request ₱${fare} & accept` : 'Accept'}
+          {busy ? '…' : `Request ₱${fare} & accept`}
         </button>
       </div>
     </div>

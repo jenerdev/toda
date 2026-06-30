@@ -142,19 +142,18 @@ sequenceDiagram
   this is the job of the ride-offer Web Push (below).
 
 ### Fare approval handshake (`0013`, `0015`)
-Before accepting, the driver may propose a single all-in **trip fare** (chips ₱0/20/30/40/50 + **+10**, up to ₱1000;
-bounds enforced server-side). They fold any extra for a far pickup into that one number — there is no separate
-surcharge selector in the UI (the `surcharge` plumbing is retained server-side for already-agreed rides). If the fare
-is > 0 the handshake adds one intermediate state without a new ride status:
+Accepting **requires** a single all-in **trip fare** (chips ₱20/30/40/50 + **+5**, **minimum ₱20**, up to ₱1000;
+bounds enforced server-side, migration `0017`). They fold any extra for a far pickup into that one number — there is no
+separate surcharge selector in the UI (the `surcharge` plumbing is retained server-side for already-agreed rides).
+Because a fare is mandatory, **every** acceptance runs the approval handshake (no instant accept):
 - Driver accepts with a fare → `respond_offer(…, p_surcharge=0, p_fare)` puts the offer in **`awaiting_approval`** and
   stamps `rides.pending_fare` + `pending_driver_id` (the ride stays `searching`, **held** to that driver — dispatch
   skips drivers holding a `pending`/`awaiting_approval` offer, so no one else is offered).
 - The commuter reads the request off **their own `rides` row** (no new RLS), sees the fare (`FareBreakdown`), and calls
   **`approve_surcharge`** (→ ride `accepted`, `fare` recorded, driver `on_trip`) or **`reject_surcharge`** (→ offer
   `declined`, `_offer_to_next_driver`).
-- Fare 0 = instant accept (agreed in person). The offer has a **2-minute** client countdown (`OFFER_TIMEOUT_SECONDS`);
-  the rider's fare approval has its own **2-minute** countdown. The money is still **cash** — the app only
-  relays/records the amount.
+- The offer has a **2-minute** client countdown (`OFFER_TIMEOUT_SECONDS`); the rider's fare approval has its own
+  **2-minute** countdown. The money is still **cash** — the app only relays/records the amount.
 
 ## Fares & money
 
