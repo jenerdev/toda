@@ -34,6 +34,9 @@ Trigger creates the `profiles` row (with a **free first month** stamped on `subs
 `driver_states` row for drivers. Subscription badge + role routing.
 > Changed from the original "email + password" plan at the user's request.
 > _(Originally granted +100 credits; credits were retired in `0008`.)_
+> **Single active session (`0020`):** a login stamps a per-device id (`claim_session` → `profiles.active_session_id`);
+> any other device watching its profile row signs itself out on a mismatch, so an account can't be used on two devices
+> at once (last login wins). Curbs account sharing — relevant to the per-account subscription.
 
 ## ✅ Phase 3 — Driver queue
 Online/offline via `driver_go_online` / `driver_go_offline` RPCs (server-time `queued_at` for correct FIFO). Live,
@@ -271,6 +274,7 @@ deferred (the `reviewed_by`/`reviewed_at` columns already capture it).
 | `0017_min_fare.sql` | Mandatory fare: `respond_offer` requires a proposed fare **≥ ₱20** on accept (no zero-fare/instant accept); scoped to the accept branch so decline is unaffected |
 | `0018_decline_reason.sql` | `ride_offers.decline_reason`; `reject_surcharge` takes an optional `p_reason` (drops the 1-arg version) and stores it on the declined offer → relayed to the driver |
 | `0019_cancel_reason.sql` | `rides.cancellation_reason`; `cancel_accepted_ride` takes an optional `p_reason` (drops the 1-arg version) and records it → shown to the other party in the outcome toast |
+| `0020_single_session.sql` | `profiles.active_session_id` + `claim_session(p_session_id)`; one active session per account — a new login stamps its device id and other devices self-sign-out via the profile Realtime watch (last login wins) |
 
 ---
 

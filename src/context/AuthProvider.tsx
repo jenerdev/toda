@@ -2,6 +2,17 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types/db'
+import { getDeviceSessionId, markEvicted } from '../lib/session'
+
+// Claim this account's single active session for THIS device (best-effort).
+// A later login elsewhere overwrites it; see the profile watcher below.
+async function claimSession() {
+  try {
+    await supabase.rpc('claim_session', { p_session_id: getDeviceSessionId() })
+  } catch {
+    /* best-effort — don't block login on this */
+  }
+}
 
 interface AuthState {
   session: Session | null
@@ -19,9 +30,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function loadProfile(userId: string) {
+  async function loadProfile(userId: string): Promise<Profile | null> {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
-    setProfile((data as Profile) ?? null)
+    const p = (data as Profile) ?? null
+    setProfile(p)
+    return p
   }
 
   async function refreshProfile() {
@@ -29,18 +42,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    // Initial session check.
+    // Initial session check. On reopen we DON'T steal the session back: if a
+    // more recent login on another device holds it, sign out here; otherwise
+    // (we're still the active device, or none is claimed yet) adopt it.
     supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session)
-      if (data.session?.user) await loadProfile(data.session.user.id)
+      if (data.session?.user) {
+        const p = await loadProfile(data.session.user.id)
+        const mine = getDeviceSessionId()
+        if (p?.active_session_id && p.active_session_id !== mine) {
+          markEvicted()
+          await supabase.auth.signOut() // superseded — don't touch driver state (other device owns it)
+        } else {
+          void claimSession()
+        }
+      }
       setLoading(false)
     })
 
-    // React to login/logout for the lifetime of the app.
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    // React to login/logout for the lifetime of the app. A fresh login always
+    // claims the session for this device (last login wins).
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession)
       if (newSession?.user) {
         await loadProfile(newSession.user.id)
+        if (event === 'SIGNED_IN') void claimSession()
       } else {
         setProfile(null)
       }
@@ -59,7 +85,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${uid}` },
-        (payload) => setProfile(payload.new as Profile),
+        async (payload) => {
+          const next = payload.new as Profile
+          setProfile(next)
+          // Single session: if another device claimed this account, sign out here.
+          if (next.active_session_id && next.active_session_id !== getDeviceSessionId()) {
+            markEvicted()
+            if (next.role === 'driver') {
+              try {
+                await supabase.rpc('driver_go_offline')
+              } catch {
+                /* best-effort */
+              }
+            }
+            await supabase.auth.signOut()
+          }
+        },
       )
       .subscribe()
     return () => {

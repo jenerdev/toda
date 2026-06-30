@@ -34,6 +34,7 @@ One row per user, created on signup (via trigger on `auth.users`).
 | `phone` | `text` | shared with the matched party |
 | `subscription_until` | `timestamptz` null | access valid while `now() <= subscription_until + 3-day grace`; null/expired blocks `book_ride` (commuter) and `driver_go_online` (driver). First month stamped free at signup. (`0009`) |
 | `is_admin` | `bool` | default `false`; gates the `/admin` review page + `review_renewal` RPC. Checked server-side via the `is_admin()` helper. (`0010`) |
+| `active_session_id` | `text` null | the device id holding this account's **single active session**; set by `claim_session` on login. Other devices watch this over Realtime and sign out on a mismatch (`0020`). |
 | `created_at` | `timestamptz` | default `now()` |
 
 > **`credits` was dropped in `0008`** (per-ride credits retired for the subscription model).
@@ -205,7 +206,7 @@ exclusively in **Postgres `SECURITY DEFINER` functions** — `book_ride`, `respo
 + pickup surcharge), `approve_surcharge`/`reject_surcharge` (commuter decides on the proposed fare; reject takes an optional reason),
 `cancel_ride`, `cancel_accepted_ride` (takes an optional cancel reason), `complete_ride`, `get_counterpart`,
 `expire_stale_offers`, `_offer_to_next_driver`,
-`submit_renewal`, `review_renewal`, `submit_driver_application`, `review_driver`, the
+`submit_renewal`, `review_renewal`, `submit_driver_application`, `review_driver`, `claim_session`, the
 `has_active_access()`/`is_admin()` helpers, plus `driver_go_online`/`driver_go_offline`, `driver_heartbeat`,
 `reap_stale_drivers`, and `update_driver_location` (each acting on the caller's own row). They run as the owner and so bypass RLS. This is the security boundary: the client
 can ask via RPC, but only these vetted functions change access or decide who's next. Chat `messages` are inserted

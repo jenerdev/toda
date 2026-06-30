@@ -27,6 +27,9 @@ export interface Profile {
   // Access is subscription-based (₱30/month). NULL = never subscribed.
   subscription_until: string | null
   is_admin: boolean
+  // Id of the device that currently holds this account's single active session
+  // (set by claim_session on login). A mismatch signs the other device out.
+  active_session_id: string | null
   created_at: string
 }
 

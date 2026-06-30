@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAuth } from '../context/AuthProvider'
 import { phoneToEmail, derivePassword, isValidPhone, DEMO_OTP } from '../lib/phone'
 import { BUILD_ID } from '../lib/buildId'
+import { consumeEvicted } from '../lib/session'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -13,6 +14,8 @@ export default function Login() {
   const [otp, setOtp] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  // Shown once if this device was signed out by a login on another device.
+  const [evicted] = useState(consumeEvicted)
 
   // Already signed in? Don't show the login screen.
   useEffect(() => {
@@ -69,6 +72,13 @@ export default function Login() {
         <div className="mb-6 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
           Supabase isn’t configured yet. Copy <code>.env.example</code> to{' '}
           <code>.env.local</code> and add your project URL + anon key.
+        </div>
+      )}
+
+      {evicted && (
+        <div className="mb-6 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          You were signed out because your account was used to sign in on another device. Only one
+          device can be signed in at a time.
         </div>
       )}
 
