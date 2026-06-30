@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthProvider'
 import { phoneToEmail, derivePassword, isValidPhone, normalizePhone, DEMO_OTP } from '../lib/phone'
 import type { Role } from '../types/db'
+import { ResendOtp } from '../components/ResendOtp'
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -170,6 +171,12 @@ export default function Signup() {
           >
             {submitting ? 'Creating…' : 'Verify & create account'}
           </button>
+          <ResendOtp
+            onResend={() => {
+              setError(null)
+              setNotice(null)
+            }}
+          />
           <button
             type="button"
             onClick={() => {

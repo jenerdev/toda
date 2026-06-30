@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthProvider'
 import { phoneToEmail, derivePassword, isValidPhone, DEMO_OTP } from '../lib/phone'
 import { BUILD_ID } from '../lib/buildId'
 import { consumeEvicted } from '../lib/session'
+import { ResendOtp } from '../components/ResendOtp'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -137,6 +138,7 @@ export default function Login() {
           >
             {submitting ? 'Verifying…' : 'Verify & log in'}
           </button>
+          <ResendOtp onResend={() => setError(null)} />
           <button
             type="button"
             onClick={() => {
