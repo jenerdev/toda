@@ -33,7 +33,15 @@ export function useRideOutcome(userId: string | undefined, role: Role | undefine
         (payload) => {
           const row = payload.new as Ride
           if (row.status === 'completed') setOutcome({ ride: row, kind: 'completed' })
-          else if (row.status === 'cancelled') setOutcome({ ride: row, kind: 'cancelled' })
+          else if (row.status === 'cancelled' && row.accepted_at) {
+            // Only surface the cancellation modal for a ride that was actually
+            // matched to a driver (accepted/enroute → cancelled). Clearing a
+            // never-matched search — no_drivers / searching → cancelled, e.g. the
+            // commuter's "Try again", "Cancel", or rebook on the no-drivers
+            // screen — routes through cancel_ride (which leaves accepted_at null)
+            // and must NOT pop a spurious "Ride cancelled" confirmation.
+            setOutcome({ ride: row, kind: 'cancelled' })
+          }
         },
       )
       .subscribe()
