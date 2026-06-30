@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthProvider'
 import { SubscriptionBadge } from './SubscriptionBadge'
 import { InstallBanner } from './InstallBanner'
 import { RideOutcomeToast } from './RideOutcomeToast'
+import { BUILD_ID } from '../lib/buildId'
 
 /** App chrome: top bar with name, subscription status, admin link, sign-out. */
 export function Layout({ children }: { children: ReactNode }) {
@@ -52,7 +53,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <main className="flex flex-1 flex-col">{children}</main>
       <RideOutcomeToast userId={user?.id} role={profile?.role} />
       <footer className="px-4 py-2 text-center text-[10px] text-gray-300">
-        MotoQueue · build {__BUILD_ID__}
+        MotoQueue · build {BUILD_ID}
       </footer>
     </div>
   )

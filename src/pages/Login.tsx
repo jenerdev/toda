@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 import { useAuth } from '../context/AuthProvider'
 import { phoneToEmail, derivePassword, isValidPhone, DEMO_OTP } from '../lib/phone'
+import { BUILD_ID } from '../lib/buildId'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -144,7 +145,7 @@ export default function Login() {
         No account? <Link className="text-brand underline" to="/signup">Create one</Link>
       </p>
 
-      <p className="mt-8 text-center text-[10px] text-gray-300">MotoQueue · build {__BUILD_ID__}</p>
+      <p className="mt-8 text-center text-[10px] text-gray-300">MotoQueue · build {BUILD_ID}</p>
     </div>
   )
 }
