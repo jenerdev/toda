@@ -25,6 +25,10 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | undefined>(undefined)
 
+// Set right before a last-resort reload of a hung first load, so the watchdog
+// reloads at most once (never loops) if the problem persists across the reload.
+const STUCK_RELOAD_KEY = 'mq.stuck_reload'
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -42,23 +46,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    let cancelled = false
+
     // Initial session check. On reopen we DON'T steal the session back: if a
     // more recent login on another device holds it, sign out here; otherwise
     // (we're still the active device, or none is claimed yet) adopt it.
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session)
-      if (data.session?.user) {
-        const p = await loadProfile(data.session.user.id)
-        const mine = getDeviceSessionId()
-        if (p?.active_session_id && p.active_session_id !== mine) {
-          markEvicted()
-          await supabase.auth.signOut() // superseded — don't touch driver state (other device owns it)
-        } else {
-          void claimSession()
+    //
+    // Wrapped in try/catch/finally so setLoading(false) ALWAYS runs once this
+    // settles. getSession() can do a network token refresh and loadProfile() is
+    // a network query — either could reject/throw, and without this the app
+    // would be stranded on the "Loading…" screen forever (the intermittent
+    // first-load hang).
+    async function init() {
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (cancelled) return
+        setSession(data.session)
+        if (data.session?.user) {
+          const p = await loadProfile(data.session.user.id)
+          if (cancelled) return
+          const mine = getDeviceSessionId()
+          if (p?.active_session_id && p.active_session_id !== mine) {
+            markEvicted()
+            await supabase.auth.signOut() // superseded — don't touch driver state (other device owns it)
+          } else {
+            void claimSession()
+          }
         }
+      } catch (err) {
+        // Never trap the user on the spinner — fall through unauthenticated and
+        // let ProtectedRoute route to /login.
+        console.warn('[MotoQueue] auth init failed; continuing unauthenticated', err)
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-      setLoading(false)
-    })
+    }
+    void init()
 
     // React to login/logout for the lifetime of the app. A fresh login always
     // claims the session for this device (last login wins).
@@ -72,8 +95,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    return () => sub.subscription.unsubscribe()
+    return () => {
+      cancelled = true
+      sub.subscription.unsubscribe()
+    }
   }, [])
+
+  // Last-resort watchdog for a hung first load. The try/catch above prevents a
+  // REJECTED init from stranding the spinner, but a network request that never
+  // SETTLES (cold PWA start, dead connection) still could. If we're still
+  // loading after 10s, reload once to recover. Guarded via sessionStorage so a
+  // persistent failure reloads at most once rather than looping.
+  useEffect(() => {
+    if (!loading) {
+      try {
+        sessionStorage.removeItem(STUCK_RELOAD_KEY)
+      } catch {
+        /* ignore */
+      }
+      return
+    }
+    const timer = setTimeout(() => {
+      try {
+        if (sessionStorage.getItem(STUCK_RELOAD_KEY)) return // already retried once
+        sessionStorage.setItem(STUCK_RELOAD_KEY, '1')
+      } catch {
+        /* storage unavailable — fall through and still attempt the reload */
+      }
+      window.location.reload()
+    }, 10_000)
+    return () => clearTimeout(timer)
+  }, [loading])
 
   // Keep the profile live — subscription_until changes server-side when a
   // renewal is approved. Requires Realtime enabled on `profiles`.
