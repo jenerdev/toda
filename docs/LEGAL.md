@@ -67,7 +67,21 @@ business → standard registration applies (BIR, mayor's/business permit, DTI or
 | **Operating area** | Constraint | MTOP franchises are **zone-bound** — don't dispatch drivers outside their franchised area (inside the subdivision is fine). |
 | **Business registration** | Required before charging | BIR + mayor's/business permit + DTI/SEC (normal small-business setup). |
 | **Driver insurance** | Confirm | Paid-passenger coverage is the driver's/franchise's responsibility; worth verifying. |
+| **Terms & Conditions** | Draft (in-app) — finalize before launch | Now **gates signup** (agree-checkbox + modal). Copy is placeholder; a lawyer must review it, and it should carry the **violation / suspension / ban** rules and the fare-relay framing. |
 | **Transport lawyer consult** | Recommended | Cheap relative to the build; confirm the above holds in your specific city. |
+
+## In-app Terms & Conditions (now gates signup)
+
+Signup now **requires agreeing to in-app Terms & Conditions** — a checkbox that gates account creation, opening a
+scrollable modal. The current copy is **starter/placeholder** describing MotoQueue's model (dispatch over
+TODA-franchised drivers, the ₱30/month subscription, **cash fares paid outside the app**, one active session per
+account, basic data use). **It must be reviewed and finalized by the operator / a transport lawyer before public
+launch — it is not legal advice.** This is the natural home for the **violation / suspension / ban** rules and the
+fare-*relay* framing noted above.
+
+On **data handling**: live driver GPS is now restricted to the **driver and the commuter on that driver's active
+ride** (previously any signed-in user could read it), tightening the privacy posture — relevant to the **Data Privacy
+Act** and worth reflecting in the privacy terms.
 
 ## Bottom line
 

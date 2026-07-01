@@ -58,8 +58,9 @@ npm run dev          # Vite dev server (localhost)
 ```
 
 1. Copy `.env.example` → `.env.local` and fill in your Supabase **URL** + **anon key**.
-2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0020`).
-   (No Supabase CLI/Docker required — everything server-side is plain SQL/RPC.)
+2. In the Supabase **SQL Editor**, run the migrations in `supabase/migrations/` **in order** (`0001` → `0027`).
+   (No Supabase CLI/Docker required — everything server-side is plain SQL/RPC.) Run
+   `supabase/tests/schema_check.sql` to see which migrations a database already has.
 3. In Supabase **Auth → Providers → Email**, turn **"Confirm email" OFF** (phone sign-ups use synthetic emails).
 
 > Geolocation (current-location pin + live driver tracking) needs **HTTPS or localhost** — fine on `npm run dev` and
@@ -89,8 +90,9 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 
 **Backend → Supabase** (one-time, managed — you just apply SQL):
 
-- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0020`). Order matters — later files
+- In the **SQL Editor**, run `supabase/migrations/` **in order** (`0001` → `0027`). Order matters — later files
   redefine earlier functions (e.g. `respond_offer`, `book_ride`) and `0008` drops the old `credits`/`transactions`.
+  (`supabase/tests/schema_check.sql` reports which migrations a database already has.)
 - **Auth → Providers → Email → "Confirm email" OFF** (phone sign-ups use synthetic, non-routable emails).
 - Bootstrap the first admin: `update public.profiles set is_admin = true where phone = '<your phone>';`
 - Optional: load `supabase/seed.sql` for a demo subdivision (verified+online drivers + a commuter; all log in with
@@ -101,6 +103,11 @@ git push origin main           # repo: https://github.com/jenerdev/toda
 
 > **Status:** Core loop, ₱30/mo subscription + GCash renewal, driver verification, and Web Push ride alerts are built;
 > plus ride **destination**, a mandatory driver-proposed **cash fare** with commuter approval, **decline/cancel
-> reasons**, 2-minute offer/approval timeouts, and **single-active-session** enforcement (migrations `0001`–`0020`).
-> The PWA is **deployed on Vercel**. The main pre-launch blocker is real SMS OTP (the dummy `1234` is still in place).
-> Remaining work and next steps are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+> reasons**, 2-minute offer/approval timeouts, and **single-active-session** enforcement. Recent additions: an **admin
+> roster** (online/offline driver list + filter, commuter subscription status) and ride **reporting** (`0021`), an
+> **OTP resend** countdown and **Terms & Conditions** gate at signup, auto re-dispatch when an offered driver drops
+> off (`0024`), and a **security-hardening** pass — SQL-injection review (`0025`), an RLS/authorization lockdown so
+> the SECURITY DEFINER RPCs are the only write path (`0026`), and driver live-location moved to a participant-scoped
+> `driver_locations` table (`0027`). Migrations `0001`–`0027`; forged-JWT RLS checks + a schema-version check live in
+> `supabase/tests/`. The PWA is **deployed on Vercel**. The main pre-launch blocker is real SMS OTP (the dummy `1234`
+> is still in place). Remaining work and next steps are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
