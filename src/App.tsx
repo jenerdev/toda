@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { ReloadPrompt } from './components/ReloadPrompt'
 import { ReconnectBanner } from './components/ReconnectBanner'
+import { Snackbar } from './components/Snackbar'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import CommuterHome from './pages/CommuterHome'
@@ -27,6 +28,7 @@ export default function App() {
     <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <ReconnectBanner />
       <ReloadPrompt />
+      <Snackbar />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />

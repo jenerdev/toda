@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { notifyIfRateLimited } from '../lib/snackbar'
 import type { Message } from '../types/db'
 
 /** Chat messages for a ride, kept live via Realtime, with a sender. */
@@ -42,7 +43,12 @@ export function useMessages(rideId: string | undefined, senderId: string | undef
     const { error } = await supabase
       .from('messages')
       .insert({ ride_id: rideId, sender_id: senderId, body: text })
-    if (error) throw error
+    if (error) {
+      // Rate-limited (migration 0029): tell the user via snackbar and stop —
+      // don't throw, so the chat input doesn't surface a raw error.
+      if (notifyIfRateLimited(error)) return
+      throw error
+    }
     await qc.invalidateQueries({ queryKey: ['messages', rideId] })
   }
 
