@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthProvider'
 import { useMyRenewal } from '../hooks/useMyRenewal'
 import { supabase } from '../lib/supabase'
+import { notifyIfRateLimited } from '../lib/snackbar'
 import { accessState, GCASH_NAME, GCASH_NUMBER, SUBSCRIPTION_PRICE } from '../lib/subscription'
 
 /**
@@ -49,7 +50,9 @@ export function RenewPanel() {
       setRef('')
       setFile(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not submit your renewal.')
+      if (!notifyIfRateLimited(e)) {
+        setError(e instanceof Error ? e.message : 'Could not submit your renewal.')
+      }
     } finally {
       setBusy(false)
     }

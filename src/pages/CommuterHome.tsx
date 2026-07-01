@@ -9,6 +9,7 @@ import { RenewPanel } from '../components/RenewPanel'
 import { CancelReasonModal } from '../components/CancelReasonModal'
 import { Loading, ErrorState } from '../components/States'
 import { supabase } from '../lib/supabase'
+import { notifyIfRateLimited } from '../lib/snackbar'
 import { accessState } from '../lib/subscription'
 
 // Default map center for the single subdivision (Metro Manila). Replace with the
@@ -115,7 +116,7 @@ export default function CommuterHome() {
     })
     setBusy(false)
     if (error) {
-      setError(error.message)
+      if (!notifyIfRateLimited(error)) setError(error.message)
       return
     }
     await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })
@@ -144,7 +145,7 @@ export default function CommuterHome() {
     })
     setBusy(false)
     if (error) {
-      setError(error.message)
+      if (!notifyIfRateLimited(error)) setError(error.message)
       return
     }
     await qc.invalidateQueries({ queryKey: ['activeRide', user?.id] })

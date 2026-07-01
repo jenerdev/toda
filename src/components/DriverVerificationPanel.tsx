@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../context/AuthProvider'
 import { supabase } from '../lib/supabase'
+import { notifyIfRateLimited } from '../lib/snackbar'
 import type { DriverApplication } from '../types/db'
 
 /**
@@ -52,7 +53,9 @@ export function DriverVerificationPanel({
       setLicense(null)
       setMotorcycle(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not submit your documents.')
+      if (!notifyIfRateLimited(e)) {
+        setError(e instanceof Error ? e.message : 'Could not submit your documents.')
+      }
     } finally {
       setBusy(false)
     }

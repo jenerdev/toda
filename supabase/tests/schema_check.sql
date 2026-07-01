@@ -3,9 +3,9 @@
 -- ============================================================================
 -- Run in the Supabase SQL editor (read-only: information_schema / catalog
 -- lookups + has_* privilege checks; changes nothing). Prints a ✅/❌ row per
--- marker object from migrations 0020–0026.
+-- marker object from migrations 0020–0029.
 --
---   • All ✅                       → schema is caught up through 0026.
+--   • All ✅                       → schema is caught up through 0029.
 --   • A migration's rows are ❌     → that migration isn't applied; run the
 --                                     matching supabase/migrations/00NN_*.sql
 --                                     files in order.
@@ -58,7 +58,19 @@ with checks(migration, object, present) as (
    ('0027 location privacy','driver_locations table',     to_regclass('public.driver_locations') is not null),
    ('0027 location privacy','driver_states.last_lat dropped',
       not exists(select 1 from information_schema.columns
-                 where table_schema='public' and table_name='driver_states' and column_name='last_lat'))
+                 where table_schema='public' and table_name='driver_states' and column_name='last_lat')),
+
+   ('0028 location no-bump','update_driver_location skips driver_states',
+      case when to_regprocedure('public.update_driver_location(double precision,double precision)') is null then false
+           else pg_get_functiondef(to_regprocedure('public.update_driver_location(double precision,double precision)')) not like '%driver_states%'
+      end),
+
+   ('0029 rate limiting',   'rate_limits table',
+      to_regclass('public.rate_limits') is not null),
+   ('0029 rate limiting',   'check_rate_limit(text,integer,integer) fn',
+      to_regprocedure('public.check_rate_limit(text,integer,integer)') is not null),
+   ('0029 rate limiting',   'messages_rate_limit trigger',
+      exists(select 1 from pg_trigger where tgname='messages_rate_limit' and not tgisinternal))
 )
 select migration, object,
        case when present then '✅' else '❌ MISSING' end as status
